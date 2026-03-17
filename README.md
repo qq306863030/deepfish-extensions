@@ -30,5 +30,5 @@ npm install deepfish-pdf-to-long-img -g
 
 ## Extension Description
 
-- `novel-generate` Novel Generation
-- `pdf-to-long-img` PDF to Long Image
+- `deepfish-novel-generate` Novel Generation
+- `deepfish-pdf-to-long-img` PDF to Long Image

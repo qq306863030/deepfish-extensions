@@ -32,6 +32,6 @@ npm install deepfish-pdf-to-long-img -g
 
 ## 扩展说明
 
-- `novel-generate` 小说生成
-- `pdf-to-long-img` PDF转长图
+- `deepfish-novel-generate` 小说生成
+- `deepfish-pdf-to-long-img` PDF转长图
 
