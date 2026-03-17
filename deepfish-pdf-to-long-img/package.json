@@ -1,19 +1,28 @@
 {
-  "name": "1",
+  "name": "deepfish-pdf-to-long-img",
   "version": "1.0.0",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": [
+    "deepfish",
+    "pdf",
+    "long-img"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "pdf转长图",
   "dependencies": {
     "canvas": "^3.2.1",
     "fs-extra": "^11.3.4",
     "pdf-to-img": "^5.0.0",
     "sharp": "^0.34.5"
-  }
+  },
+   "files": [
+    "index.js",
+    "core.js",
+    "README.md"
+  ]
 }

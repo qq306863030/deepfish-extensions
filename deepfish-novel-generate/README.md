@@ -4,6 +4,16 @@
 
 `novelGeneratorTools.js` 是一个专为生成长篇小说设计的扩展工具模块，旨在通过本地文件存储机制规避AI API的上下文长度限制。该模块提供了从大纲创作、章节生成到最终合并成书的完整工作流支持。
 
+## 快速开始
+
+```bash
+npm install deepfish-ai -g
+npm install deepfish-novel-generate -g
+
+# 需要先配置deepfish
+ai 在当前目录中生成一个科幻小说
+```
+
 ## 核心功能
 
 ### 1. `generateNovelChapter` - 生成小说章节

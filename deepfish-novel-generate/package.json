@@ -1,7 +1,7 @@
 {
-  "name": "novel-generate",
+  "name": "deepfish-novel-generate",
   "version": "1.0.0",
-  "description": "## 概述",
+  "description": "小说生成扩展",
   "main": "novelGeneratorTools.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -16,5 +16,9 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.0.3",
     "globals": "^17.4.0"
-  }
+  },
+   "files": [
+    "novelGeneratorTools.js",
+    "README.md"
+  ]
 }
