@@ -49,7 +49,7 @@ function getMergedFilePath() {
     return 'novel_complete.txt';
 }
 
-const toolDescriptions = [
+const descriptions = [
     {
         name: 'generateNovelChapter',
         description: '小说生成工具：根据章节标题、大纲、风格和字数生成小说章节内容，保存为本地文件',
@@ -220,7 +220,7 @@ const toolDescriptions = [
     }
 ];
 
-const toolFunctions = {
+const functions = {
     // 生成小说章节
     generateNovelChapter: async function(chapterNumber, chapterTitle, outline = '', style = '玄幻', wordCount = 2000, previousChapterSummary = '') {
         try {
@@ -859,6 +859,6 @@ const toolFunctions = {
 };
 
 module.exports = {
-    toolDescriptions,
-    toolFunctions,
+    descriptions,
+    functions,
 };

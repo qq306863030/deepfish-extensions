@@ -1,6 +1,6 @@
 {
   "name": "deepfish-novel-generate",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "小说生成扩展",
   "main": "novelGeneratorTools.js",
   "scripts": {

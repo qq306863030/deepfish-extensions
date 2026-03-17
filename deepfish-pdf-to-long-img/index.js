@@ -1,6 +1,6 @@
 const { pdfToLongImage } = require('./core.js');
 
-const toolDescriptions = [
+const descriptions = [
   {
     name: 'pdf_to_long_image',
     description: '将PDF文件转换为长图，将PDF的每一页拼接成一个垂直排列的PNG长图',
@@ -21,7 +21,7 @@ const toolDescriptions = [
   }
 ];
 
-const toolFunctions = {
+const functions = {
   pdf_to_long_image: async (pdfPath, outputImagePath) => {
     try {
       console.log(`开始转换PDF文件: ${pdfPath} -> ${outputImagePath}`);
@@ -35,6 +35,6 @@ const toolFunctions = {
 };
 
 module.exports = {
-  toolDescriptions,
-  toolFunctions,
+  descriptions,
+  functions,
 };
