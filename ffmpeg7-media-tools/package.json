@@ -1,0 +1,14 @@
+{
+  "name": "@deepfish-ai/ffmpeg7-media-tools",
+  "version": "1.0.0",
+  "description": "基于FFmpeg 7的音频视频处理工具函数集",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["ffmpeg", "video", "audio", "media", "processing", "tools"],
+  "author": "DeepFish AI",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}
