@@ -17,20 +17,61 @@
 需要先安装FFmpeg 7或更高版本：
 
 #### Windows
-1. 下载FFmpeg：https://ffmpeg.org/download.html
+1. 下载FFmpeg 7：https://ffmpeg.org/download.html（选择包含版本7的构建）
 2. 解压并添加到系统PATH环境变量
 3. 验证安装：`ffmpeg -version`
 
 #### macOS
 ```bash
+# 使用Homebrew安装FFmpeg 7
+brew install ffmpeg@7
+
+# 如果找不到ffmpeg@7，可以先更新Homebrew再尝试
+brew update
+brew install ffmpeg@7
+```
+
+或者安装最新版本（可能包含FFmpeg 7）：
+```bash
 brew install ffmpeg
 ```
 
 #### Linux (Ubuntu/Debian)
+**方法一：使用官方静态构建（推荐）**
+```bash
+# 下载最新FFmpeg 7静态构建
+wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+# 解压
+tar xf ffmpeg-release-amd64-static.tar.xz
+# 进入解压目录
+cd ffmpeg-*-amd64-static
+# 复制二进制文件到系统路径
+sudo cp ffmpeg ffprobe /usr/local/bin/
+```
+
+**方法二：使用PPA安装（适用于Ubuntu 22.04+）**
+```bash
+# 添加PPA
+sudo add-apt-repository ppa:jonathonf/ffmpeg-7
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**方法三：使用系统仓库（版本可能较旧）**
 ```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
+
+
+### 验证安装
+安装完成后，请验证FFmpeg版本是否为7.0或更高：
+```bash
+ffmpeg -version | head -n 1
+```
+应该输出类似：`ffmpeg version 7.0.1 Copyright (c) 2000-2024...`
+
+如果版本低于7.0，请参考上述安装方法重新安装FFmpeg 7。
 
 ### 安装包
 ```bash
