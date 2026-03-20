@@ -1,6 +1,6 @@
 # Novel Generation Extension Tool
 
-[中文](README_CN.md) | English
+[中文](./README_CN.md) | English
 
 ## Overview
 

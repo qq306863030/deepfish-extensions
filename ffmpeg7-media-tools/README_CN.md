@@ -1,6 +1,6 @@
 # @deepfish-ai/ffmpeg7-media-tools
 
-[English](README.md) | 中文
+[English](./README.md) | 中文
 
 基于FFmpeg 7的音频视频处理工具函数集，包含24个媒体处理函数，支持视频格式转换、音频提取、视频编辑等常见媒体处理任务。
 

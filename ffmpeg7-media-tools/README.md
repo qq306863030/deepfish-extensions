@@ -1,6 +1,6 @@
 # @deepfish-ai/ffmpeg7-media-tools
 
-English | [中文](README_CN.md)
+English | [中文](./README_CN.md)
 
 A comprehensive FFmpeg 7 based audio and video processing toolkit with 24 media processing functions, supporting video format conversion, audio extraction, video editing, and other common media processing tasks.
 
