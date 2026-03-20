@@ -981,6 +981,32 @@ functions.ffmpeg_addTextOverlay = async (params) => {
   }
 };
 
+/**
+ * 调整视频音量
+ * @param {object} params 参数对象
+ * @param {string} params.videoPath 输入视频文件路径
+ * @param {string} params.outputPath 输出视频文件路径
+ * @param {number} params.volume 音量倍数（如0.5为一半音量，2.0为两倍音量）
+ */
+functions.ffmpeg_adjustVideoVolume = async (params) => {
+  const { videoPath, outputPath, volume } = params;
+  // 检查ffmpeg安装
+  const checkResult = await functions.ffmpeg_checkFfmpegInstallation({ minVersion: '7.0.0' });
+  if (!checkResult.installed || !checkResult.versionOk) {
+    throw new Error(`FFmpeg检查失败: ${checkResult.message}`);
+  }
+  // 构建调整视频音量命令
+  // 使用-filter:a调整音频，-c:v copy保持视频流不重新编码
+  const command = `ffmpeg -i "${videoPath}" -filter:a "volume=${volume}" -c:v copy "${outputPath}"`;
+  await this.Tools.executeCommand(command);
+  return {
+    success: true,
+    message: `视频音量调整完成: ${volume}倍`,
+    outputPath: outputPath
+  };
+};
+
+
 
 
 // ============ 模块导出 ============

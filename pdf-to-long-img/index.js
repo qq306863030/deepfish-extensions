@@ -2,8 +2,8 @@ const { pdfToLongImage } = require('./core.js');
 
 const descriptions = [
   {
-    name: 'pdf_to_long_image',
-    description: '将PDF文件转换为长图，将PDF的每一页拼接成一个垂直排列的PNG长图',
+    name: 'pdfConversion_toLongImage',
+    description: 'PDF转换:将PDF文件转换为长图，将PDF的每一页拼接成一个垂直排列的PNG长图',
     parameters: {
       type: 'object',
       properties: {
@@ -22,7 +22,7 @@ const descriptions = [
 ];
 
 const functions = {
-  pdf_to_long_image: async (pdfPath, outputImagePath) => {
+  pdfConversion_toLongImage: async (pdfPath, outputImagePath) => {
     try {
       console.log(`开始转换PDF文件: ${pdfPath} -> ${outputImagePath}`);
       await pdfToLongImage(pdfPath, outputImagePath);

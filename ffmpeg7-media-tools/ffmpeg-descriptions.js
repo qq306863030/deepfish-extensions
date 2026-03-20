@@ -673,6 +673,30 @@ descriptions.push({
   }
 });
 
+descriptions.push({
+  name: 'ffmpeg_adjustVideoVolume',
+  description: 'FFmpeg工具:调整视频音量',
+  parameters: {
+    type: 'object',
+    properties: {
+      videoPath: {
+        type: 'string',
+        description: '输入视频文件路径',
+      },
+      outputPath: {
+        type: 'string',
+        description: '输出视频文件路径',
+      },
+      volume: {
+        type: 'number',
+        description: '音量倍数（如0.5为一半音量，2.0为两倍音量）',
+      },
+    },
+    required: ['videoPath', 'outputPath', 'volume'],
+  },
+});
+
+
 
 
 // ============ 模块导出 ============

@@ -10,25 +10,33 @@ ai use deepseek
 ```
 
 ```bash
-# Open the current directory, add all extensions
-cd ./
-ai "execute npm install in each subdirectory"
-ai ext add .
+# Add extensions automatically
+npm install pdf-to-long-img -g
 ```
 
 ```bash
-# Add only a specific extension
+# Add extensions manually
 cd ./
 npm install
-ai ext add ./deepfish-pdf-to-long-img/index.js
-```
+ai ext add ./pdf-to-long-img/index.js
 
-```bash
-# Install via npm
-npm install deepfish-pdf-to-long-img -g
+# Add extensions in batch manually
+cd ./
+ai "Run npm install in each subdirectory respectively"
+ai ext add .
 ```
 
 ## Extension Description
 
-- `deepfish-novel-generate` Novel Generation
-- `deepfish-pdf-to-long-img` PDF to Long Image
+- `novel-generate` Novel generation
+
+- `pdf-to-long-img` PDF to long image conversion
+
+- `ffmpeg7-media-tools` Audio and video processing (based on ffmpeg7)
+
+## Extension Publishing
+
+```bash
+  npm init --scope=deepfish-ai
+  npm publish --access=public # After using the --access=public parameter, this setting will be saved, and subsequent publications of this package will no longer require this parameter
+```

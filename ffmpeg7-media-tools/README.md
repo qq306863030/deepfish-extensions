@@ -1,299 +1,155 @@
 # @deepfish-ai/ffmpeg7-media-tools
 
-基于FFmpeg 7的音频视频处理工具函数集，包含23个媒体处理函数，支持视频格式转换、音频提取、视频编辑等常见媒体处理任务。
+English | [中文](README_CN.md)
 
-## ✨ 特性
+A comprehensive FFmpeg 7 based audio and video processing toolkit with 24 media processing functions, supporting video format conversion, audio extraction, video editing, and other common media processing tasks.
 
-- **全面覆盖**: 23个精心设计的FFmpeg函数，覆盖常见媒体处理需求
-- **易于使用**: 统一的参数格式，清晰的错误处理
-- **AI友好**: 包含完整的AI智能体描述信息
-- **跨平台**: 支持Windows、macOS和Linux系统
-- **TypeScript友好**: 完整的JSDoc注释和类型提示
+## ✨ Features
 
-## 📦 安装
+- **Comprehensive Coverage**: 24 carefully designed FFmpeg functions covering common media processing needs
+- **Easy to Use**: Unified parameter format, clear error handling
+- **AI Friendly**: Complete AI agent description information included
+- **Cross-Platform**: Supports Windows, macOS, and Linux systems
+- **TypeScript Friendly**: Complete JSDoc comments and type hints
 
-### 前提条件
+## 🚀 Quick Start
 
-需要先安装FFmpeg 7或更高版本：
+### Prerequisites
 
-#### Windows
-1. 下载FFmpeg 7：https://ffmpeg.org/download.html（选择包含版本7的构建）
-2. 解压并添加到系统PATH环境变量
-3. 验证安装：`ffmpeg -version`
+First, install the global deepfish-ai library:
 
-#### macOS
 ```bash
-# 使用Homebrew安装FFmpeg 7
-brew install ffmpeg@7
-
-# 如果找不到ffmpeg@7，可以先更新Homebrew再尝试
-brew update
-brew install ffmpeg@7
+npm install deepfish-ai -g
 ```
 
-或者安装最新版本（可能包含FFmpeg 7）：
+### Installation
+
+Install this package globally:
+
 ```bash
-brew install ffmpeg
+npm install @deepfish-ai/ffmpeg7-media-tools -g
 ```
 
-#### Linux (Ubuntu/Debian)
-**方法一：使用官方静态构建（推荐）**
-```bash
-# 下载最新FFmpeg 7静态构建
-wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-# 解压
-tar xf ffmpeg-release-amd64-static.tar.xz
-# 进入解压目录
-cd ffmpeg-*-amd64-static
-# 复制二进制文件到系统路径
-sudo cp ffmpeg ffprobe /usr/local/bin/
-```
+### FFmpeg Installation
 
-**方法二：使用PPA安装（适用于Ubuntu 22.04+）**
-```bash
-# 添加PPA
-sudo add-apt-repository ppa:jonathonf/ffmpeg-7
-sudo apt update
-sudo apt install ffmpeg
-```
+This toolkit requires FFmpeg 7 or higher. Please install FFmpeg 7 before using:
 
-**方法三：使用系统仓库（版本可能较旧）**
-```bash
-sudo apt update
-sudo apt install ffmpeg
-```
+- **Windows**: Download FFmpeg 7 from https://ffmpeg.org/download.html and add to system PATH
+- **macOS**: `brew install ffmpeg@7` or `brew install ffmpeg`
+- **Linux**: Use static builds or distribution packages
 
+Verify installation: `ffmpeg -version` should show version 7.0 or higher.
 
-### 验证安装
-安装完成后，请验证FFmpeg版本是否为7.0或更高：
-```bash
-ffmpeg -version | head -n 1
-```
-应该输出类似：`ffmpeg version 7.0.1 Copyright (c) 2000-2024...`
+## 📋 Function List
 
-如果版本低于7.0，请参考上述安装方法重新安装FFmpeg 7。
+The toolkit provides 24 functions divided into the following categories:
 
-### 安装包
-```bash
-npm install @deepfish-ai/ffmpeg7-media-tools
-```
+### Installation Detection (1 function)
 
-## 🚀 快速开始
+| Function Name | Description |
+|---------------|-------------|
+| `ffmpeg_checkFfmpegInstallation` | Check FFmpeg installation and version detection |
 
-```javascript
-const { functions } = require('@deepfish-ai/ffmpeg7-media-tools');
+### Video Processing (18 functions)
 
-// 1. 检查FFmpeg安装
-const checkResult = await functions.ffmpeg_checkFfmpegInstallation({
-  minVersion: '7.0.0'
-});
+| Function Name | Description |
+|---------------|-------------|
+| `ffmpeg_convertVideoFormat` | Convert video format |
+| `ffmpeg_resizeVideo` | Resize video dimensions |
+| `ffmpeg_trimVideo` | Trim video segment |
+| `ffmpeg_mergeVideos` | Merge multiple video files |
+| `ffmpeg_adjustBitrate` | Adjust video bitrate |
+| `ffmpeg_addWatermark` | Add watermark to video |
+| `ffmpeg_mergeVideoAudio` | Merge video and audio |
+| `ffmpeg_videoToGif` | Convert video to animated GIF |
+| `ffmpeg_cropVideo` | Crop video region |
+| `ffmpeg_rotateVideo` | Rotate video |
+| `ffmpeg_changeVideoSpeed` | Change video playback speed |
+| `ffmpeg_addSubtitles` | Add subtitles to video |
+| `ffmpeg_addTextOverlay` | Add text overlay to video |
+| `ffmpeg_adjustVideoVolume` | Adjust video volume |
+| `ffmpeg_extractVideoFrames` | Extract video frames as image sequence |
+| `ffmpeg_extractVideoThumbnail` | Extract video thumbnail |
+| `ffmpeg_compressVideo` | Compress video (adjust CRF) |
+| `ffmpeg_concatVideos` | Concatenate multiple video files |
 
-// 2. 转换视频格式
-const convertResult = await functions.ffmpeg_convertVideoFormat({
-  inputPath: '/path/to/input.avi',
-  outputPath: '/path/to/output.mp4',
-  format: 'mp4',
-  quality: '-crf 23'
-});
+### Audio Processing (5 functions)
 
-// 3. 从视频中提取音频
-const audioResult = await functions.ffmpeg_extractAudioFromVideo({
-  videoPath: '/path/to/video.mp4',
-  audioPath: '/path/to/audio.mp3',
-  audioFormat: 'mp3'
-});
-```
+| Function Name | Description |
+|---------------|-------------|
+| `ffmpeg_extractAudioFromVideo` | Extract audio from video |
+| `ffmpeg_convertAudioFormat` | Convert audio format |
+| `ffmpeg_adjustAudioVolume` | Adjust audio volume |
+| `ffmpeg_mixAudios` | Mix multiple audio files |
 
-## 📋 API参考
+### Media Information (1 function)
 
-### 安装检测 (1个)
+| Function Name | Description |
+|---------------|-------------|
+| `ffmpeg_getMediaInfo` | Get media file information |
 
-| 函数名 | 描述 | 主要参数 |
-|--------|------|----------|
-| `ffmpeg_checkFfmpegInstallation` | 检测FFmpeg是否安装和版本检测 | `minVersion` |
-
-### 视频处理 (17个)
-
-| 函数名 | 描述 | 主要参数 |
-|--------|------|----------|
-| `ffmpeg_convertVideoFormat` | 转换视频格式 | `inputPath`, `outputPath`, `format`, `quality` |
-| `ffmpeg_resizeVideo` | 调整视频尺寸 | `inputPath`, `outputPath`, `width`, `height`, `keepAspectRatio` |
-| `ffmpeg_trimVideo` | 剪切视频片段 | `inputPath`, `outputPath`, `startTime`, `duration` |
-| `ffmpeg_mergeVideos` | 合并多个视频文件 | `videoPaths`, `outputPath`, `method` |
-| `ffmpeg_adjustBitrate` | 调整视频比特率 | `inputPath`, `outputPath`, `bitrate`, `audioBitrate` |
-| `ffmpeg_addWatermark` | 添加水印 | `inputPath`, `outputPath`, `watermarkPath`, `position`, `opacity` |
-| `ffmpeg_mergeVideoAudio` | 合并视频和音频 | `videoPath`, `audioPath`, `outputPath`, `sync` |
-| `ffmpeg_videoToGif` | 将视频转换为GIF动图 | `videoPath`, `outputPath`, `startTime`, `duration`, `fps`, `width` |
-| `ffmpeg_cropVideo` | 裁剪视频区域 | `videoPath`, `outputPath`, `x`, `y`, `width`, `height` |
-| `ffmpeg_rotateVideo` | 旋转视频 | `videoPath`, `outputPath`, `angle` |
-| `ffmpeg_changeVideoSpeed` | 改变视频播放速度 | `videoPath`, `outputPath`, `speed` |
-| `ffmpeg_addSubtitles` | 添加字幕到视频 | `videoPath`, `subtitlePath`, `outputPath`, `encoding` |
-| `ffmpeg_addTextOverlay` | 添加文本叠加到视频 | `videoPath`, `outputPath`, `text`, `x`, `y`, `fontSize`, `fontColor`, `startTime`, `duration` |
-| `ffmpeg_extractVideoFrames` | 提取视频帧为图片序列 | `videoPath`, `outputDir`, `fps`, `format`, `startTime`, `duration` |
-| `ffmpeg_extractVideoThumbnail` | 提取视频缩略图 | `videoPath`, `outputPath`, `time`, `size` |
-| `ffmpeg_compressVideo` | 压缩视频（调整CRF） | `videoPath`, `outputPath`, `crf`, `preset` |
-| `ffmpeg_concatVideos` | 拼接多个视频文件 | `videoPaths`, `outputPath`, `transition` |
-
-### 音频处理 (5个)
-
-| 函数名 | 描述 | 主要参数 |
-|--------|------|----------|
-| `ffmpeg_extractAudioFromVideo` | 从视频中提取音频 | `videoPath`, `audioPath`, `audioFormat` |
-| `ffmpeg_convertAudioFormat` | 转换音频格式 | `inputPath`, `outputPath`, `format`, `bitrate` |
-| `ffmpeg_adjustAudioVolume` | 调整音频音量 | `inputPath`, `outputPath`, `volume` |
-| `ffmpeg_mixAudios` | 混合多个音频文件 | `audioPaths`, `outputPath`, `volumes` |
-
-### 媒体信息 (1个)
-
-| 函数名 | 描述 | 主要参数 |
-|--------|------|----------|
-| `ffmpeg_getMediaInfo` | 获取媒体文件信息 | `mediaPath` |
-
-## 🔧 详细使用示例
-
-### 视频格式转换
-```javascript
-const result = await functions.ffmpeg_convertVideoFormat({
-  inputPath: 'input.avi',
-  outputPath: 'output.mp4',
-  format: 'mp4',
-  quality: '-crf 23'
-});
-```
-
-### 调整视频尺寸
-```javascript
-const result = await functions.ffmpeg_resizeVideo({
-  inputPath: 'input.mp4',
-  outputPath: 'output_720p.mp4',
-  width: 1280,
-  height: 720,
-  keepAspectRatio: true
-});
-```
-
-### 视频裁剪
-```javascript
-const result = await functions.ffmpeg_cropVideo({
-  videoPath: 'input.mp4',
-  outputPath: 'output_cropped.mp4',
-  x: 100,
-  y: 100,
-  width: 800,
-  height: 600
-});
-```
-
-### 添加水印
-```javascript
-const result = await functions.ffmpeg_addWatermark({
-  inputPath: 'video.mp4',
-  outputPath: 'video_with_logo.mp4',
-  watermarkPath: 'logo.png',
-  position: 'top-right',
-  opacity: 0.7
-});
-```
-
-### 从视频中提取音频
-```javascript
-const result = await functions.ffmpeg_extractAudioFromVideo({
-  videoPath: 'video.mp4',
-  audioPath: 'audio.mp3',
-  audioFormat: 'mp3'
-});
-```
-
-### 批量处理示例
-```javascript
-// 批量压缩视频
-const videos = ['video1.mp4', 'video2.mp4', 'video3.mp4'];
-
-for (const video of videos) {
-  await functions.ffmpeg_compressVideo({
-    videoPath: video,
-    outputPath: `compressed_${video}`,
-    crf: 28, // 更高的CRF值表示更强的压缩
-    preset: 'slow'
-  });
-}
-```
-
-## 🏗️ 项目结构
+## 🏗️ Project Structure
 
 ```
 ffmpeg7-media-tools/
-├── ffmpeg-functions.js     # 23个FFmpeg功能函数实现
-├── ffmpeg-descriptions.js  # AI智能体描述信息
-├── index.js                # 主入口文件，重新导出功能
-├── package.json            # 项目配置
-└── README.md               # 本文档
+├── ffmpeg-functions.js     # 24 FFmpeg function implementations
+├── ffmpeg-descriptions.js  # AI agent description information
+├── index.js                # Main entry file, re-exports functions
+├── package.json            # Project configuration
+├── README.md               # English documentation (this file)
+└── README_CN.md           # Chinese documentation
 ```
 
-### 文件说明
+## ⚠️ Notes
 
-- **ffmpeg-functions.js**: 包含所有23个FFmpeg媒体处理函数的实现，每个函数都有完整的错误处理和参数验证
-- **ffmpeg-descriptions.js**: 为AI智能体提供的函数描述信息，包含详细的参数说明和功能描述
-- **index.js**: 统一导出接口，便于模块化使用
+1. **FFmpeg Version**: This toolkit is designed for FFmpeg 7, recommended to use FFmpeg 7.0 or higher
+2. **File Paths**: Use absolute paths for all file operations
+3. **Error Handling**: All functions include error handling with detailed error messages
+4. **Resource Consumption**: Video processing is CPU-intensive, monitor system resources when processing large files
+5. **Output Directory**: Ensure output directories exist before processing
 
-## ⚠️ 注意事项
+## 🔍 Troubleshooting
 
-1. **FFmpeg版本**: 本工具集基于FFmpeg 7设计，建议使用FFmpeg 7.0或更高版本
-2. **文件路径**: 所有文件路径建议使用绝对路径，相对路径可能因工作目录不同而产生问题
-3. **错误处理**: 所有函数都包含错误处理，执行失败时会抛出详细的错误信息
-4. **资源消耗**: 视频处理是CPU密集型任务，大文件处理时请注意系统资源
-5. **输出目录**: 请确保输出目录存在，否则某些函数可能无法正常创建输出文件
-
-## 🔍 故障排除
-
-### FFmpeg未找到
+### FFmpeg Not Found
 ```
 Error: FFmpeg is not installed or not in system PATH
 ```
-**解决方案**: 
-- 确认FFmpeg已正确安装
-- 将FFmpeg添加到系统PATH环境变量
-- 重启终端或IDE使环境变量生效
+**Solution**: 
+- Confirm FFmpeg is correctly installed
+- Add FFmpeg to system PATH environment variable
+- Restart terminal or IDE for environment variables to take effect
 
-### 文件不存在
+### File Does Not Exist
 ```
 Error: Input file does not exist: /path/to/file.mp4
 ```
-**解决方案**:
-- 确认文件路径正确
-- 使用绝对路径而非相对路径
-- 检查文件权限
+**Solution**:
+- Confirm file path is correct
+- Use absolute paths instead of relative paths
+- Check file permissions
 
-### 格式不支持
-```
-Error: Unsupported video format: .xyz
-```
-**解决方案**:
-- 检查输入文件格式是否被FFmpeg支持
-- 尝试使用`ffmpeg_convertVideoFormat`先转换格式
+## 🤝 Contributing
 
-## 🤝 贡献
+Welcome to submit Issues and Pull Requests to improve this project. Before submitting a PR, please ensure:
 
-欢迎提交Issue和Pull Request来改进这个项目。在提交PR前，请确保：
+1. Code style is consistent
+2. Add appropriate tests
+3. Update documentation (including API docs and examples)
+4. Function parameter formats are unified
 
-1. 代码风格一致
-2. 添加相应的测试
-3. 更新文档（包括API文档和示例）
-4. 函数参数格式统一
+## 📄 License
 
-## 📄 许可证
+MIT License - See LICENSE file
 
-MIT License - 详见LICENSE文件
+## 📞 Support
 
-## 📞 支持
-
-如有问题或建议，请：
-1. 查看本文档的故障排除部分
-2. 提交GitHub Issue
-3. 联系维护团队
+For questions or suggestions, please:
+1. Check the Troubleshooting section in this documentation
+2. Submit a GitHub Issue
+3. Contact the maintenance team
 
 ---
 
-**最后更新**: 2026年  
-**版本**: 1.0.0  
-**FFmpeg版本**: 7.0+
+**Last Updated**: 2026  
+**Version**: 1.0.0  
+**FFmpeg Version**: 7.0+
