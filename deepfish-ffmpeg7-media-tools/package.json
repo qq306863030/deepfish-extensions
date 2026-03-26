@@ -1,6 +1,6 @@
 {
   "name": "@deepfish-ai/ffmpeg7-media-tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "基于FFmpeg 7的音频视频处理工具函数集",
   "main": "index.js",
   "scripts": {},
