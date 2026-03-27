@@ -123,6 +123,17 @@ const descriptions = [
     }
   },
   {
+    name: 'novelCreator_exportNovel',
+    description: '小说创作:导出小说为txt和markdown格式。合并各章节内容生成完整的小说文件',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' }
+      },
+      required: ['novelDataPath']
+    }
+  },
+  {
     name: 'novelCreator_extensionRule',
     description: '小说创作:扩展工具使用说明。调用小说创作模块前一定要查看',
     parameters: {
@@ -678,6 +689,142 @@ ${contextSummary}
     }
   },
   
+  // 导出小说为txt和markdown格式
+  novelCreator_exportNovel: async function(novelDataPath) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      if (!novelData.chapters || novelData.chapters.length === 0) {
+        return { success: false, message: '没有找到章节内容，无法导出' };
+      }
+      
+      // 检查是否有完成的章节
+      const completedChapters = novelData.chapters.filter(ch => ch.content && ch.content.trim());
+      if (completedChapters.length === 0) {
+        return { success: false, message: '没有已完成的章节内容可导出' };
+      }
+      
+      const projectDir = path.dirname(novelDataPath);
+      const novelTitle = novelData.title || '未命名小说';
+      const safeTitle = novelTitle.replace(/[\\/:*?"<>|]/g, '_'); // 替换文件名中的非法字符
+      
+      // 读取各章节文件内容
+      const chaptersDir = path.join(projectDir, 'chapters');
+      let allContent = [];
+      let toc = []; // 目录
+      
+      // 按顺序处理每个章节
+      for (let i = 0; i < novelData.chapters.length; i++) {
+        const chapter = novelData.chapters[i];
+        if (chapter.content && chapter.content.trim()) {
+          // 读取章节文件
+          const chapterFilePath = path.join(chaptersDir, `chapter_${i + 1}.md`);
+          let chapterContent = '';
+          
+          if (await this.aiCli.Tools.fileExists(chapterFilePath)) {
+            const fileContent = await this.aiCli.Tools.readFile(chapterFilePath);
+            // 去除markdown标题（# 章节标题）
+            chapterContent = fileContent.replace(/^#\s+.*\n/, '').trim();
+          } else {
+            // 如果文件不存在，使用内存中的内容
+            chapterContent = chapter.content;
+          }
+          
+          if (chapterContent) {
+            toc.push({
+              index: i + 1,
+              title: chapter.title || `第${i + 1}章`,
+              wordCount: getWordCount(chapterContent)
+            });
+            allContent.push({
+              index: i + 1,
+              title: chapter.title || `第${i + 1}章`,
+              content: chapterContent
+            });
+          }
+        }
+      }
+      
+      if (allContent.length === 0) {
+        return { success: false, message: '没有可导出的章节内容' };
+      }
+      
+      // 生成txt文件内容
+      let txtContent = `${novelTitle}\n`;
+      txtContent += `作者：${novelData.author || 'DeepFish AI'}\n`;
+      txtContent += `类型：${novelData.type || '未知'}\n`;
+      txtContent += `主题：${novelData.theme || '待补充'}\n`;
+      txtContent += `=`.repeat(30) + '\n\n';
+      
+      for (const chapter of allContent) {
+        txtContent += `\n\n${chapter.title}\n`;
+        txtContent += `-`.repeat(20) + '\n\n';
+        txtContent += chapter.content + '\n\n';
+      }
+      
+      // 生成markdown文件内容（带目录）
+      let mdContent = `# ${novelTitle}\n\n`;
+      mdContent += `> 作者：${novelData.author || 'DeepFish AI'}  |  类型：${novelData.type || '未知'}  |  主题：${novelData.theme || '待补充'}\n\n`;
+      mdContent += `---\n\n`;
+      
+      // 添加目录
+      mdContent += `## 目录\n\n`;
+      for (const item of toc) {
+        mdContent += `- [${item.title}](#${item.index}-chapter) (${item.wordCount}字)\n`;
+      }
+      mdContent += `\n\n---\n\n`;
+      
+      // 添加章节内容
+      for (const chapter of allContent) {
+        mdContent += `## ${chapter.title} {#${chapter.index}-chapter}\n\n`;
+        mdContent += chapter.content + '\n\n';
+        mdContent += `\n---\n\n`;
+      }
+      
+      // 添加结尾
+      mdContent += `\n---\n\n`;
+      mdContent += `*本小说由DeepFish AI创作完成*\n`;
+      
+      // 保存txt文件
+      const txtFilePath = path.join(projectDir, `${safeTitle}.txt`);
+      await this.aiCli.Tools.createFile(txtFilePath, txtContent);
+      
+      // 保存markdown文件
+      const mdFilePath = path.join(projectDir, `${safeTitle}.md`);
+      await this.aiCli.Tools.createFile(mdFilePath, mdContent);
+      
+      // 统计信息
+      const totalWords = allContent.reduce((sum, ch) => sum + getWordCount(ch.content), 0);
+      
+      return {
+        success: true,
+        message: `小说导出成功！已生成txt和markdown格式文件`,
+        outputFiles: {
+          txt: txtFilePath,
+          md: mdFilePath
+        },
+        summary: {
+          novelTitle,
+          chapterCount: allContent.length,
+          totalWords,
+          author: novelData.author || 'DeepFish AI'
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `小说导出失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
   // 扩展工具使用说明
   novelCreator_extensionRule: function() {
     return `# 小说创作扩展工具使用说明
@@ -692,6 +839,7 @@ ${contextSummary}
 4. **生成章节内容** - 逐章生成小说正文内容
 5. **断点续写** - 从上次中断处继续创作
 6. **获取写作进度** - 查看创作进度和统计信息
+7. **导出小说** - 导出完整小说为txt和markdown格式
 
 ## 使用流程
 推荐按以下顺序使用本扩展工具：
@@ -744,6 +892,11 @@ const result = await novelCreator_resumeWriting("novel_data.json路径");
 const result = await novelCreator_getProgress("novel_data.json路径");
 \`\`\`
 
+### 第七步：导出小说
+\`\`\`
+const result = await novelCreator_exportNovel("novel_data.json路径");
+\`\`\`
+
 ## 输出文件结构
 项目目录包含以下文件：
 - \`novel_data.json\` - 小说核心数据
@@ -754,6 +907,8 @@ const result = await novelCreator_getProgress("novel_data.json路径");
   - \`chapter_1.md\` - 第1章内容
   - \`chapter_2.md\` - 第2章内容
   - ...
+- \`小说标题.txt\` - 导出的纯文本小说文件
+- \`小说标题.md\` - 导出的markdown格式小说文件（含目录）
 
 ## 上下文管理机制
 1. **记忆机制**：记录关键情节和人物特征
