@@ -1,864 +1,805 @@
-/**
- * 长篇小说网文生成工具
- * 使用本地文件存储来避免API上下文限制
- */
+// 小说创作扩展工具 - DeepFish AI Extension
+// 提供完整的小说创作功能，包括大纲生成、章节规划、内容生成、进度管理和断点续写
 
 const path = require('path');
-const fs = require('fs-extra');
+const fs = require('fs');
 
-// 工具函数：调用AI接口
-async function callAI(systemDescription, prompt) {
-    try {
-        // 注意：这里使用this.Tools.requestAI，在实际工作流中会自动注入
-        const result = await this.Tools.requestAI(systemDescription, prompt);
-        return result;
-    } catch (error) {
-        console.error('AI调用失败:', error);
-        throw new Error(`AI调用失败: ${error.message}`);
-    }
+// fs-extra兼容函数
+async function ensureDir(dirPath) {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
 }
 
-// 工具函数：确保目录存在
-function ensureDirectory(dirPath) {
-    const fullPath = path.resolve(process.cwd(), dirPath);
-    if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true });
-    }
-    return fullPath;
+async function readJsonFile(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  const content = fs.readFileSync(filePath, 'utf8');
+  return JSON.parse(content);
 }
 
-// 工具函数：获取章节文件路径
-function getChapterFilePath(chapterNumber, chapterTitle = '') {
-    const safeTitle = chapterTitle.replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
-    const fileName = `chapter_${String(chapterNumber).padStart(4, '0')}_${safeTitle || 'chapter'}.txt`;
-    return path.join('novel_chapters', fileName);
+async function writeJsonFile(filePath, data) {
+  const dir = path.dirname(filePath);
+  await ensureDir(dir);
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// 工具函数：获取摘要文件路径
-function getSummaryFilePath(chapterNumber) {
-    return path.join('novel_summaries', `summary_${String(chapterNumber).padStart(4, '0')}.txt`);
+
+// 工具函数：计算中文字数
+function countChineseCharacters(text) {
+  if (!text) return 0;
+  // 匹配中文字符（包括中文标点）
+  const chineseChars = text.match(/[\u4e00-\u9fa5]/g);
+  return chineseChars ? chineseChars.length : 0;
 }
 
-// 工具函数：获取大纲文件路径
-function getOutlineFilePath() {
-    return path.join('novel_data', 'outline.txt');
+// 工具函数：计算英文单词数
+function countEnglishWords(text) {
+  if (!text) return 0;
+  // 匹配英文单词
+  const words = text.match(/\b[a-zA-Z]+\b/g);
+  return words ? words.length : 0;
 }
 
-// 工具函数：获取合并文件路径
-function getMergedFilePath() {
-    return 'novel_complete.txt';
+// 工具函数：获取总字数
+function getWordCount(text) {
+  if (!text) return 0;
+  const chineseCount = countChineseCharacters(text);
+  const englishCount = countEnglishWords(text);
+  // 中文字数 + 英文单词数（近似处理）
+  return chineseCount + englishCount;
 }
 
+// 工具函数：格式化进度信息
+function formatProgress(novelData) {
+  const totalChapters = novelData.chapters?.length || 0;
+  const completedChapters = novelData.chapters?.filter(ch => ch.content && ch.content.trim()).length || 0;
+  const totalWordCount = novelData.chapters?.reduce((sum, ch) => sum + getWordCount(ch.content || ''), 0) || 0;
+  const targetWordCount = novelData.targetWordCount || 0;
+  const progressPercent = targetWordCount > 0 ? Math.round((totalWordCount / targetWordCount) * 100) : 0;
+  
+  return {
+    novelTitle: novelData.title || '未命名小说',
+    totalChapters,
+    completedChapters,
+    totalWordCount,
+    targetWordCount,
+    progressPercent,
+    completionRate: totalChapters > 0 ? Math.round((completedChapters / totalChapters) * 100) : 0
+  };
+}
+
+// 函数描述数组
 const descriptions = [
-    {
-        name: 'generateNovelChapter',
-        description: '小说生成工具：根据章节标题、大纲、风格和字数生成小说章节内容，保存为本地文件',
-        parameters: {
-            type: 'object',
-            properties: {
-                chapterNumber: {
-                    type: 'integer',
-                    description: '章节编号',
-                },
-                chapterTitle: {
-                    type: 'string',
-                    description: '章节标题',
-                },
-                outline: {
-                    type: 'string',
-                    description: '小说大纲或情节概要',
-                },
-                style: {
-                    type: 'string',
-                    description: '写作风格（如：悬疑、言情、玄幻等）',
-                },
-                wordCount: {
-                    type: 'integer',
-                    description: '目标字数（默认2000字）',
-                },
-                previousChapterSummary: {
-                    type: 'string',
-                    description: '前一章节的摘要，用于保持情节连贯性',
-                }
-            },
-            required: ['chapterNumber', 'chapterTitle'],
-        },
-    },
-    {
-        name: 'createNovelOutline',
-        description: '小说生成工具：生成整个小说的总体大纲，包括情节结构、人物设定、主题思想等',
-        parameters: {
-            type: 'object',
-            properties: {
-                genre: {
-                    type: 'string',
-                    description: '小说类型（如：玄幻、言情、科幻、悬疑等）',
-                },
-                theme: {
-                    type: 'string',
-                    description: '主题或核心思想',
-                },
-                targetWordCount: {
-                    type: 'integer',
-                    description: '目标总字数',
-                },
-                mainCharacters: {
-                    type: 'string',
-                    description: '主要人物设定（可选）',
-                }
-            },
-            required: ['genre'],
-        },
-    },
-    {
-        name: 'summarizeChapter',
-        description: '小说生成工具：生成章节摘要，提取关键情节、人物发展和伏笔，用于后续上下文',
-        parameters: {
-            type: 'object',
-            properties: {
-                chapterNumber: {
-                    type: 'integer',
-                    description: '章节编号',
-                },
-                chapterContent: {
-                    type: 'string',
-                    description: '章节内容（如果为空则从文件读取）',
-                },
-                detailLevel: {
-                    type: 'string',
-                    description: '摘要详细程度：brief（简要）、standard（标准）、detailed（详细）',
-                }
-            },
-            required: ['chapterNumber'],
-        },
-    },
-    {
-        name: 'getNovelContext',
-        description: '小说生成工具：读取指定章节范围的内容，返回摘要或关键信息，用于生成后续章节时提供上下文',
-        parameters: {
-            type: 'object',
-            properties: {
-                startChapter: {
-                    type: 'integer',
-                    description: '起始章节编号',
-                },
-                endChapter: {
-                    type: 'integer',
-                    description: '结束章节编号（可选，默认为最新章节）',
-                },
-                contextType: {
-                    type: 'string',
-                    description: '上下文类型：summary（摘要）、key_events（关键事件）、character_development（人物发展）',
-                },
-                maxLength: {
-                    type: 'integer',
-                    description: '最大返回长度（字符数）',
-                }
-            },
-            required: ['startChapter'],
-        },
-    },
-    {
-        name: 'mergeNovelChapters',
-        description: '小说生成工具：将所有章节合并为一个完整小说文件，可添加目录、封面和章节标题',
-        parameters: {
-            type: 'object',
-            properties: {
-                startChapter: {
-                    type: 'integer',
-                    description: '起始章节编号（默认从第1章开始）',
-                },
-                endChapter: {
-                    type: 'integer',
-                    description: '结束章节编号（默认到最新章节）',
-                },
-                format: {
-                    type: 'string',
-                    description: '输出格式：txt（纯文本）、md（Markdown）、html（HTML格式）',
-                },
-                includeToc: {
-                    type: 'boolean',
-                    description: '是否包含目录',
-                }
-            },
-        },
-    },
-    {
-        name: 'analyzeNovelStructure',
-        description: '小说生成工具：分析已生成章节，确保情节连贯性，检查人物发展和情节逻辑',
-        parameters: {
-            type: 'object',
-            properties: {
-                startChapter: {
-                    type: 'integer',
-                    description: '起始章节编号',
-                },
-                endChapter: {
-                    type: 'integer',
-                    description: '结束章节编号',
-                },
-                analysisType: {
-                    type: 'string',
-                    description: '分析类型：coherence（连贯性）、character（人物一致性）、plot（情节逻辑）',
-                }
-            },
-            required: ['startChapter'],
-        },
-    },
-    {
-        name: 'getNovelProgress',
-        description: '小说生成工具：获取小说生成进度信息，包括已生成章节数、字数统计等',
-        parameters: {
-            type: 'object',
-            properties: {
-                includeDetails: {
-                    type: 'boolean',
-                    description: '是否包含详细章节列表',
-                }
-            },
-        },
+  {
+    name: 'novelCreator_initializeNovel',
+    description: '小说创作:初始化小说项目',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelTitle: { type: 'string', description: '小说标题' },
+        theme: { type: 'string', description: '主题思想/核心概念' },
+        targetWordCount: { type: 'number', description: '目标字数' },
+        novelType: { type: 'string', description: '小说类型（如：奇幻、科幻、言情、悬疑等）' },
+        background: { type: 'string', description: '故事背景/世界观' },
+        outputDir: { type: 'string', description: '输出目录路径（可选，默认为当前目录）' }
+      },
+      required: ['novelTitle', 'theme', 'targetWordCount', 'novelType', 'background']
     }
+  },
+  {
+    name: 'novelCreator_generateOutline',
+    description: '小说创作:生成小说大纲',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' }
+      },
+      required: ['novelDataPath']
+    }
+  },
+  {
+    name: 'novelCreator_generateChapterPlan',
+    description: '小说创作:生成章节规划',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' }
+      },
+      required: ['novelDataPath']
+    }
+  },
+  {
+    name: 'novelCreator_generateChapterContent',
+    description: '小说创作:生成章节内容',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' },
+        chapterIndex: { type: 'number', description: '章节索引（从0开始）' },
+        chapterCount: { type: 'number', description: '一次生成的章节数量（可选，默认为1）' }
+      },
+      required: ['novelDataPath', 'chapterIndex']
+    }
+  },
+  {
+    name: 'novelCreator_resumeWriting',
+    description: '小说创作:断点续写',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' }
+      },
+      required: ['novelDataPath']
+    }
+  },
+  {
+    name: 'novelCreator_getProgress',
+    description: '小说创作:获取写作进度',
+    parameters: {
+      type: 'object',
+      properties: {
+        novelDataPath: { type: 'string', description: '小说数据文件路径' }
+      },
+      required: ['novelDataPath']
+    }
+  },
+  {
+    name: 'novelCreator_extensionRule',
+    description: '小说创作:扩展工具使用说明。调用小说创作模块前一定要查看',
+    parameters: {
+      type: 'object',
+      properties: {}
+    }
+  }
 ];
 
+// 函数实现
 const functions = {
-    // 生成小说章节
-    generateNovelChapter: async function(chapterNumber, chapterTitle, outline = '', style = '玄幻', wordCount = 2000, previousChapterSummary = '') {
-        try {
-            // 确保目录存在
-            ensureDirectory('novel_chapters');
-            ensureDirectory('novel_summaries');
-            
-            const chapterFilePath = getChapterFilePath(chapterNumber, chapterTitle);
-            const fullPath = path.resolve(process.cwd(), chapterFilePath);
-            
-            // 构建AI提示
-            const systemDesc = `你是一位专业的网络小说作家，擅长创作${style}类型的小说。请根据提供的信息创作一个小说章节。`;
-            
-            let prompt = `创作小说章节：\n`;
-            prompt += `章节编号：第${chapterNumber}章\n`;
-            prompt += `章节标题：${chapterTitle}\n`;
-            prompt += `目标字数：约${wordCount}字\n`;
-            prompt += `写作风格：${style}\n\n`;
-            
-            if (outline) {
-                prompt += `小说大纲：${outline}\n\n`;
-            }
-            
-            if (previousChapterSummary) {
-                prompt += `前一章节摘要：${previousChapterSummary}\n\n`;
-            }
-            
-            prompt += `请创作这一章节的内容，要求：\n`;
-            prompt += `1. 情节推进合理，符合故事发展逻辑\n`;
-            prompt += `2. 人物性格和行为保持一致\n`;
-            prompt += `3. 语言生动，描写细腻\n`;
-            prompt += `4. 为后续情节埋下伏笔\n`;
-            prompt += `5. 章节结尾要有悬念或转折，吸引读者继续阅读\n\n`;
-            prompt += `现在开始创作：\n`;
-            
-            // 调用AI生成章节内容
-            const chapterContent = await callAI.call(this, systemDesc, prompt);
-            
-            // 保存章节内容
-            const header = `第${chapterNumber}章 ${chapterTitle}\n\n`;
-            const footer = `\n\n字数：约${wordCount}字\n生成时间：${new Date().toLocaleString()}\n`;
-            const fullContent = header + chapterContent + footer;
-            
-            fs.writeFileSync(fullPath, fullContent, 'utf8');
-            
-            // 自动生成章节摘要
-            try {
-                await this.summarizeChapter(chapterNumber, chapterContent, 'standard');
-            } catch (error) {
-                console.warn(`章节摘要生成失败: ${error.message}`);
-            }
-            
-            return {
-                success: true,
-                chapterNumber,
-                chapterTitle,
-                filePath: chapterFilePath,
-                wordCount: chapterContent.length,
-                message: `第${chapterNumber}章生成成功`
-            };
-        } catch (error) {
-            console.error('生成章节失败:', error);
-            return {
-                success: false,
-                chapterNumber,
-                error: error.message
-            };
+  // 初始化小说项目
+  novelCreator_initializeNovel: async function(
+    novelTitle,
+    theme,
+    targetWordCount,
+    novelType,
+    background,
+    outputDir = '.'
+  ) {
+    try {
+      // 创建输出目录
+      const projectDir = path.resolve(outputDir, `novel_${novelTitle.replace(/[^\w\u4e00-\u9fa5]/g, '_')}`);
+      await this.aiCli.Tools.createDirectory(projectDir);
+      
+      // 创建小说数据结构
+      const novelData = {
+        title: novelTitle,
+        theme,
+        targetWordCount,
+        type: novelType,
+        background,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'initialized',
+        chapters: [],
+        outline: null,
+        chapterPlan: null,
+        characters: [],
+        settings: [],
+        contextMemory: {
+          plotPoints: [],
+          characterTraits: {},
+          keyEvents: []
         }
-    },
-    
-    // 创建小说大纲
-    createNovelOutline: async function(genre, theme = '', targetWordCount = 2000000, mainCharacters = '') {
-        try {
-            ensureDirectory('novel_data');
-            
-            const outlineFilePath = getOutlineFilePath();
-            const fullPath = path.resolve(process.cwd(), outlineFilePath);
-            
-            const systemDesc = `你是一位专业的网络小说策划编辑，擅长${genre}类型小说的整体规划和结构设计。`;
-            
-            let prompt = `创作一部${genre}类型的小说大纲：\n`;
-            prompt += `目标字数：${targetWordCount}字（约${Math.ceil(targetWordCount/2000)}章）\n\n`;
-            
-            if (theme) {
-                prompt += `主题思想：${theme}\n`;
-            }
-            
-            if (mainCharacters) {
-                prompt += `主要人物：${mainCharacters}\n`;
-            }
-            
-            prompt += `\n请提供以下内容：\n`;
-            prompt += `1. 作品名称（建议3-5个备选）\n`;
-            prompt += `2. 核心主题和思想内涵\n`;
-            prompt += `3. 主要人物设定（主角、配角、反派）\n`;
-            prompt += `4. 世界观设定（如为玄幻/科幻类型）\n`;
-            prompt += `5. 整体情节结构（开端、发展、高潮、结局）\n`;
-            prompt += `6. 分卷/分篇章规划（每卷约20-50章）\n`;
-            prompt += `7. 关键情节节点和转折点\n`;
-            prompt += `8. 伏笔和悬念设置\n`;
-            prompt += `9. 预期读者群体和市场定位\n\n`;
-            prompt += `请创作一个完整、详细的小说大纲：\n`;
-            
-            const outlineContent = await callAI.call(this, systemDesc, prompt);
-            
-            let header = `《${genre}小说大纲》\n`;
-            header += `生成时间：${new Date().toLocaleString()}\n`;
-            header += `目标字数：${targetWordCount}字\n\n`;
-            
-            const fullContent = header + outlineContent;
-            fs.writeFileSync(fullPath, fullContent, 'utf8');
-            
-            return {
-                success: true,
-                filePath: outlineFilePath,
-                wordCount: outlineContent.length,
-                message: '小说大纲生成成功'
-            };
-        } catch (error) {
-            console.error('生成大纲失败:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    },
-    
-    // 生成章节摘要
-    summarizeChapter: async function(chapterNumber, chapterContent = '', detailLevel = 'standard') {
-        try {
-            ensureDirectory('novel_summaries');
-            
-            const summaryFilePath = getSummaryFilePath(chapterNumber);
-            const fullPath = path.resolve(process.cwd(), summaryFilePath);
-            
-            // 如果未提供内容，则尝试从文件读取
-            if (!chapterContent) {
-                const chapterFile = getChapterFilePath(chapterNumber);
-                const chapterFullPath = path.resolve(process.cwd(), chapterFile);
-                
-                if (fs.existsSync(chapterFullPath)) {
-                    chapterContent = fs.readFileSync(chapterFullPath, 'utf8');
-                } else {
-                    throw new Error(`第${chapterNumber}章文件不存在`);
-                }
-            }
-            
-            // 截取内容，避免过长
-            const contentForSummary = chapterContent.substring(0, 5000);
-            
-            const systemDesc = '你是一位专业的文学编辑，擅长提取小说章节的核心内容和关键信息。';
-            
-            let prompt = `提取第${chapterNumber}章的摘要：\n\n`;
-            prompt += `章节内容（部分）：${contentForSummary}\n\n`;
-            prompt += `请提供${detailLevel === 'brief' ? '简要' : detailLevel === 'detailed' ? '详细' : '标准'}摘要，包括：\n`;
-            
-            if (detailLevel === 'brief') {
-                prompt += `1. 核心情节（50字以内）\n`;
-                prompt += `2. 关键事件（1-2个）\n`;
-            } else if (detailLevel === 'detailed') {
-                prompt += `1. 情节概要（100-200字）\n`;
-                prompt += `2. 关键事件和转折点\n`;
-                prompt += `3. 人物发展和关系变化\n`;
-                prompt += `4. 伏笔和悬念设置\n`;
-                prompt += `5. 对后续情节的影响\n`;
-            } else {
-                prompt += `1. 情节概要（80-150字）\n`;
-                prompt += `2. 关键事件\n`;
-                prompt += `3. 人物发展\n`;
-                prompt += `4. 重要伏笔\n`;
-            }
-            
-            prompt += `\n请提供摘要：\n`;
-            
-            const summaryContent = await callAI.call(this, systemDesc, prompt);
-            
-            let header = `第${chapterNumber}章摘要\n`;
-            header += `生成时间：${new Date().toLocaleString()}\n`;
-            header += `详细程度：${detailLevel}\n\n`;
-            
-            const fullContent = header + summaryContent;
-            fs.writeFileSync(fullPath, fullContent, 'utf8');
-            
-            return {
-                success: true,
-                chapterNumber,
-                filePath: summaryFilePath,
-                summaryLength: summaryContent.length,
-                message: `第${chapterNumber}章摘要生成成功`
-            };
-        } catch (error) {
-            console.error('生成摘要失败:', error);
-            return {
-                success: false,
-                chapterNumber,
-                error: error.message
-            };
-        }
-    },
-    
-    // 获取小说上下文
-    getNovelContext: async function(startChapter, endChapter = null, contextType = 'summary', maxLength = 2000) {
-        try {
-            ensureDirectory('novel_summaries');
-            ensureDirectory('novel_chapters');
-            
-            // 确定结束章节
-            if (!endChapter) {
-                // 查找最新的章节文件
-                const chaptersDir = path.resolve(process.cwd(), 'novel_chapters');
-                if (fs.existsSync(chaptersDir)) {
-                    const files = fs.readdirSync(chaptersDir);
-                    const chapterFiles = files.filter(f => f.startsWith('chapter_'));
-                    if (chapterFiles.length > 0) {
-                        const chapterNumbers = chapterFiles.map(f => {
-                            const match = f.match(/chapter_(\d+)/);
-                            return match ? parseInt(match[1]) : 0;
-                        }).filter(n => !isNaN(n));
-                        
-                        if (chapterNumbers.length > 0) {
-                            endChapter = Math.max(...chapterNumbers);
-                        } else {
-                            endChapter = startChapter;
-                        }
-                    } else {
-                        endChapter = startChapter;
-                    }
-                } else {
-                    endChapter = startChapter;
-                }
-            }
-            
-            if (endChapter < startChapter) {
-                throw new Error('结束章节不能小于起始章节');
-            }
-            
-            let contextContent = '';
-            
-            if (contextType === 'summary') {
-                // 使用摘要文件
-                for (let i = startChapter; i <= endChapter; i++) {
-                    const summaryFile = getSummaryFilePath(i);
-                    const fullPath = path.resolve(process.cwd(), summaryFile);
-                    
-                    if (fs.existsSync(fullPath)) {
-                        const summary = fs.readFileSync(fullPath, 'utf8');
-                        contextContent += `第${i}章：\n${summary}\n\n`;
-                    }
-                }
-            } else if (contextType === 'key_events') {
-                // 提取关键事件
-                const systemDesc = '你是一位专业的文学分析师，擅长从小说章节中提取关键事件和转折点。';
-                
-                let prompt = `从第${startChapter}章到第${endChapter}章中提取关键事件：\n\n`;
-                
-                // 收集章节内容
-                for (let i = startChapter; i <= endChapter; i++) {
-                    const chapterFile = getChapterFilePath(i);
-                    const fullPath = path.resolve(process.cwd(), chapterFile);
-                    
-                    if (fs.existsSync(fullPath)) {
-                        const content = fs.readFileSync(fullPath, 'utf8');
-                        // 只取前1000字符避免过长
-                        prompt += `第${i}章（部分内容）：${content.substring(0, 1000)}...\n\n`;
-                    }
-                }
-                
-                prompt += `请提取这些章节中的关键事件、转折点和重要发展，按时间顺序排列。\n`;
-                
-                contextContent = await callAI.call(this, systemDesc, prompt);
-            } else if (contextType === 'character_development') {
-                // 提取人物发展
-                const systemDesc = '你是一位专业的文学分析师，擅长分析小说人物的发展和变化。';
-                
-                let prompt = `分析第${startChapter}章到第${endChapter}章中的人物发展：\n\n`;
-                
-                for (let i = startChapter; i <= endChapter; i++) {
-                    const summaryFile = getSummaryFilePath(i);
-                    const fullPath = path.resolve(process.cwd(), summaryFile);
-                    
-                    if (fs.existsSync(fullPath)) {
-                        const summary = fs.readFileSync(fullPath, 'utf8');
-                        prompt += `第${i}章摘要：${summary}\n\n`;
-                    }
-                }
-                
-                prompt += `请分析这些章节中主要人物的发展变化，包括：\n`;
-                prompt += `1. 性格变化\n2. 关系变化\n3. 重要抉择\n4. 成长轨迹\n`;
-                
-                contextContent = await callAI.call(this, systemDesc, prompt);
-            }
-            
-            // 如果内容过长，进行截断
-            if (contextContent.length > maxLength) {
-                contextContent = contextContent.substring(0, maxLength) + '...（内容已截断）';
-            }
-            
-            return {
-                success: true,
-                startChapter,
-                endChapter,
-                contextType,
-                content: contextContent,
-                length: contextContent.length,
-                message: `成功获取第${startChapter}-${endChapter}章的${contextType}上下文`
-            };
-        } catch (error) {
-            console.error('获取上下文失败:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    },
-    
-    // 合并小说章节
-    mergeNovelChapters: async function(startChapter = 1, endChapter = null, format = 'txt', includeToc = true) {
-        try {
-            ensureDirectory('novel_chapters');
-            
-            // 确定结束章节
-            if (!endChapter) {
-                const chaptersDir = path.resolve(process.cwd(), 'novel_chapters');
-                if (fs.existsSync(chaptersDir)) {
-                    const files = fs.readdirSync(chaptersDir);
-                    const chapterFiles = files.filter(f => f.startsWith('chapter_'));
-                    if (chapterFiles.length > 0) {
-                        const chapterNumbers = chapterFiles.map(f => {
-                            const match = f.match(/chapter_(\d+)/);
-                            return match ? parseInt(match[1]) : 0;
-                        }).filter(n => !isNaN(n));
-                        
-                        if (chapterNumbers.length > 0) {
-                            endChapter = Math.max(...chapterNumbers);
-                        } else {
-                            endChapter = startChapter;
-                        }
-                    } else {
-                        throw new Error('没有找到章节文件');
-                    }
-                } else {
-                    throw new Error('章节目录不存在');
-                }
-            }
-            
-            const mergedFilePath = getMergedFilePath();
-            const fullPath = path.resolve(process.cwd(), mergedFilePath);
-            
-            let mergedContent = '';
-            const toc = [];
-            
-            // 收集章节
-            for (let i = startChapter; i <= endChapter; i++) {
-                const chapterFile = getChapterFilePath(i);
-                const chapterFullPath = path.resolve(process.cwd(), chapterFile);
-                
-                if (fs.existsSync(chapterFullPath)) {
-                    const chapterContent = fs.readFileSync(chapterFullPath, 'utf8');
-                    
-                    // 提取章节标题
-                    const firstLine = chapterContent.split('\n')[0];
-                    const titleMatch = firstLine.match(/第\d+章\s+(.+)/);
-                    const title = titleMatch ? titleMatch[1] : `第${i}章`;
-                    
-                    toc.push({ chapter: i, title });
-                    
-                    if (format === 'md') {
-                        mergedContent += `## 第${i}章 ${title}\n\n`;
-                        mergedContent += chapterContent.replace(/^第\d+章\s+.+\n\n/, '') + '\n\n';
-                    } else if (format === 'html') {
-                        mergedContent += `<h2>第${i}章 ${title}</h2>\n`;
-                        mergedContent += `<div class="chapter-content">\n`;
-                        mergedContent += chapterContent.replace(/^第\d+章\s+.+\n\n/, '').replace(/\n/g, '<br>\n');
-                        mergedContent += `</div>\n\n`;
-                    } else {
-                        mergedContent += chapterContent + '\n\n';
-                    }
-                }
-            }
-            
-            // 添加目录
-            if (includeToc) {
-                let tocContent = '';
-                
-                if (format === 'md') {
-                    tocContent = '# 目录\n\n';
-                    toc.forEach(item => {
-                        tocContent += `- [第${item.chapter}章 ${item.title}](#第${item.chapter}章-${item.title})\n`;
-                    });
-                    tocContent += '\n';
-                } else if (format === 'html') {
-                    tocContent = '<h1>目录</h1>\n<ul>\n';
-                    toc.forEach(item => {
-                        tocContent += `  <li><a href="#chapter-${item.chapter}">第${item.chapter}章 ${item.title}</a></li>\n`;
-                    });
-                    tocContent += '</ul>\n\n';
-                } else {
-                    tocContent = '目录\n\n';
-                    toc.forEach(item => {
-                        tocContent += `第${item.chapter}章 ${item.title}\n`;
-                    });
-                    tocContent += '\n' + '='.repeat(50) + '\n\n';
-                }
-                
-                mergedContent = tocContent + mergedContent;
-            }
-            
-            // 添加文件头
-            let header = '';
-            if (format === 'md') {
-                header = `# 完整小说\n\n`;
-                header += `生成时间：${new Date().toLocaleString()}\n`;
-                header += `章节范围：第${startChapter}章 - 第${endChapter}章\n`;
-                header += `总章节数：${endChapter - startChapter + 1}\n\n`;
-            } else if (format === 'html') {
-                header = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>完整小说</title>\n<style>\nbody { font-family: Arial, sans-serif; line-height: 1.6; margin: 40px; }\nh1, h2 { color: #333; }\n.chapter-content { margin-bottom: 40px; }\n</style>\n</head>\n<body>\n<h1>完整小说</h1>\n<p>生成时间：${new Date().toLocaleString()}</p>\n<p>章节范围：第${startChapter}章 - 第${endChapter}章</p>\n<p>总章节数：${endChapter - startChapter + 1}</p>\n\n`;
-            } else {
-                header = `完整小说\n`;
-                header += `生成时间：${new Date().toLocaleString()}\n`;
-                header += `章节范围：第${startChapter}章 - 第${endChapter}章\n`;
-                header += `总章节数：${endChapter - startChapter + 1}\n`;
-                header += '='.repeat(50) + '\n\n';
-            }
-            
-            mergedContent = header + mergedContent;
-            
-            if (format === 'html') {
-                mergedContent += '</body>\n</html>';
-            }
-            
-            fs.writeFileSync(fullPath, mergedContent, 'utf8');
-            
-            // 计算总字数
-            const wordCount = mergedContent.length;
-            
-            return {
-                success: true,
-                filePath: mergedFilePath,
-                startChapter,
-                endChapter,
-                totalChapters: endChapter - startChapter + 1,
-                wordCount,
-                format,
-                message: `成功合并第${startChapter}-${endChapter}章，共${endChapter - startChapter + 1}章`
-            };
-        } catch (error) {
-            console.error('合并章节失败:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    },
-    
-    // 分析小说结构
-    analyzeNovelStructure: async function(startChapter, endChapter = null, analysisType = 'coherence') {
-        try {
-            ensureDirectory('novel_chapters');
-            ensureDirectory('novel_summaries');
-            
-            // 确定结束章节
-            if (!endChapter) {
-                const chaptersDir = path.resolve(process.cwd(), 'novel_chapters');
-                if (fs.existsSync(chaptersDir)) {
-                    const files = fs.readdirSync(chaptersDir);
-                    const chapterFiles = files.filter(f => f.startsWith('chapter_'));
-                    if (chapterFiles.length > 0) {
-                        const chapterNumbers = chapterFiles.map(f => {
-                            const match = f.match(/chapter_(\d+)/);
-                            return match ? parseInt(match[1]) : 0;
-                        }).filter(n => !isNaN(n));
-                        
-                        if (chapterNumbers.length > 0) {
-                            endChapter = Math.max(...chapterNumbers);
-                        } else {
-                            endChapter = startChapter;
-                        }
-                    } else {
-                        throw new Error('没有找到章节文件');
-                    }
-                } else {
-                    throw new Error('章节目录不存在');
-                }
-            }
-            
-            // 收集章节摘要
-            let summaries = '';
-            for (let i = startChapter; i <= endChapter; i++) {
-                const summaryFile = getSummaryFilePath(i);
-                const fullPath = path.resolve(process.cwd(), summaryFile);
-                
-                if (fs.existsSync(fullPath)) {
-                    const summary = fs.readFileSync(fullPath, 'utf8');
-                    summaries += `第${i}章：${summary}\n\n`;
-                }
-            }
-            
-            if (!summaries) {
-                throw new Error('没有找到章节摘要');
-            }
-            
-            const systemDesc = '你是一位专业的文学分析师和编辑，擅长分析小说的结构和逻辑。';
-            
-            let prompt = `分析小说第${startChapter}章到第${endChapter}章的结构：\n\n`;
-            prompt += `章节摘要：\n${summaries}\n\n`;
-            
-            if (analysisType === 'coherence') {
-                prompt += `请分析这些章节的情节连贯性：\n`;
-                prompt += `1. 情节发展是否合理自然\n`;
-                prompt += `2. 转折点是否合理\n`;
-                prompt += `3. 节奏控制是否恰当\n`;
-                prompt += `4. 是否存在逻辑漏洞\n`;
-                prompt += `5. 提出改进建议\n`;
-            } else if (analysisType === 'character') {
-                prompt += `请分析这些章节中的人物一致性：\n`;
-                prompt += `1. 主要人物性格是否前后一致\n`;
-                prompt += `2. 人物行为是否符合其性格设定\n`;
-                prompt += `3. 人物关系发展是否合理\n`;
-                prompt += `4. 人物成长轨迹是否清晰\n`;
-                prompt += `5. 提出改进建议\n`;
-            } else if (analysisType === 'plot') {
-                prompt += `请分析这些章节的情节逻辑：\n`;
-                prompt += `1. 主线情节是否清晰\n`;
-                prompt += `2. 支线情节是否与主线关联合理\n`;
-                prompt += `3. 伏笔设置和回收是否恰当\n`;
-                prompt += `4. 悬念设置是否有效\n`;
-                prompt += `5. 高潮部分是否足够精彩\n`;
-                prompt += `6. 提出改进建议\n`;
-            }
-            
-            const analysisResult = await callAI.call(this, systemDesc, prompt);
-            
-            // 保存分析结果
-            const analysisFilePath = path.join('novel_data', `analysis_${startChapter}_${endChapter}_${analysisType}.txt`);
-            ensureDirectory('novel_data');
-            const fullAnalysisPath = path.resolve(process.cwd(), analysisFilePath);
-            
-            let header = `小说结构分析报告\n`;
-            header += `分析范围：第${startChapter}章 - 第${endChapter}章\n`;
-            header += `分析类型：${analysisType}\n`;
-            header += `分析时间：${new Date().toLocaleString()}\n\n`;
-            
-            fs.writeFileSync(fullAnalysisPath, header + analysisResult, 'utf8');
-            
-            return {
-                success: true,
-                startChapter,
-                endChapter,
-                analysisType,
-                filePath: analysisFilePath,
-                message: `小说结构分析完成，结果已保存`
-            };
-        } catch (error) {
-            console.error('分析小说结构失败:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    },
-    
-    // 获取小说进度
-    getNovelProgress: async function(includeDetails = false) {
-        try {
-            const chaptersDir = path.resolve(process.cwd(), 'novel_chapters');
-            const summariesDir = path.resolve(process.cwd(), 'novel_summaries');
-            
-            let totalChapters = 0;
-            let totalWordCount = 0;
-            let chapterDetails = [];
-            
-            if (fs.existsSync(chaptersDir)) {
-                const files = fs.readdirSync(chaptersDir);
-                const chapterFiles = files.filter(f => f.startsWith('chapter_'));
-                totalChapters = chapterFiles.length;
-                
-                // 计算总字数
-                for (const file of chapterFiles) {
-                    const filePath = path.join(chaptersDir, file);
-                    const content = fs.readFileSync(filePath, 'utf8');
-                    totalWordCount += content.length;
-                    
-                    // 提取章节信息
-                    const chapterMatch = file.match(/chapter_(\d+)_(.+)\.txt/);
-                    if (chapterMatch) {
-                        const chapterNum = parseInt(chapterMatch[1]);
-                        const title = chapterMatch[2].replace(/_/g, ' ');
-                        
-                        if (includeDetails) {
-                            chapterDetails.push({
-                                chapter: chapterNum,
-                                title: title,
-                                wordCount: content.length,
-                                fileName: file
-                            });
-                        }
-                    }
-                }
-                
-                // 按章节号排序
-                chapterDetails.sort((a, b) => a.chapter - b.chapter);
-            }
-            
-            // 检查大纲是否存在
-            const outlinePath = path.resolve(process.cwd(), getOutlineFilePath());
-            const hasOutline = fs.existsSync(outlinePath);
-            
-            // 检查合并文件是否存在
-            const mergedPath = path.resolve(process.cwd(), getMergedFilePath());
-            const hasMerged = fs.existsSync(mergedPath);
-            
-            const progress = {
-                success: true,
-                totalChapters,
-                totalWordCount,
-                estimatedTotalWords: totalWordCount,
-                hasOutline,
-                hasMerged,
-                completionRate: totalChapters > 0 ? Math.min(100, (totalChapters / 1000) * 100) : 0, // 假设目标1000章
-                message: `当前进度：已生成${totalChapters}章，约${Math.round(totalWordCount/500)}字`
-            };
-            
-            if (includeDetails && chapterDetails.length > 0) {
-                progress.chapterDetails = chapterDetails;
-            }
-            
-            return progress;
-        } catch (error) {
-            console.error('获取进度失败:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
+      };
+      
+      // 保存小说数据
+      const dataFilePath = path.join(projectDir, 'novel_data.json');
+      await this.aiCli.Tools.createFile(dataFilePath, JSON.stringify(novelData, null, 2));
+      
+      // 创建章节目录
+      const chaptersDir = path.join(projectDir, 'chapters');
+      await this.aiCli.Tools.createDirectory(chaptersDir);
+      
+      // 创建进度文件
+      const progressFilePath = path.join(projectDir, 'progress.json');
+      await this.aiCli.Tools.createFile(progressFilePath, JSON.stringify({
+        initialized: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        totalChapters: 0,
+        completedChapters: 0,
+        totalWords: 0
+      }, null, 2));
+      
+      return {
+        success: true,
+        message: `小说项目初始化成功: ${novelTitle}`,
+        projectDir,
+        dataFilePath,
+        chaptersDir,
+        progressFilePath
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `小说项目初始化失败: ${error.message}`,
+        error: error.toString()
+      };
     }
+  },
+  
+  // 生成小说大纲
+  novelCreator_generateOutline: async function(novelDataPath) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      // 使用AI生成大纲
+      const systemPrompt = `你是一个专业的小说创作助手。请根据以下小说信息生成一个详细的小说大纲：
+
+小说标题: ${novelData.title}
+主题思想: ${novelData.theme}
+小说类型: ${novelData.type}
+故事背景: ${novelData.background}
+目标字数: ${novelData.targetWordCount}
+
+请生成一个包含以下部分的小说大纲：
+1. 核心冲突
+2. 主要人物介绍
+3. 故事结构（开端、发展、高潮、结局）
+4. 主题表达
+5. 关键情节节点
+
+大纲需要详细、有创意，并且符合小说的类型和主题。`;
+      
+      const outline = await this.aiCli.Tools.requestAI(
+        '小说创作助手',
+        systemPrompt,
+        0.7
+      );
+      
+      // 更新小说数据
+      novelData.outline = outline;
+      novelData.status = 'outline_generated';
+      novelData.updatedAt = new Date().toISOString();
+      
+      // 保存更新
+      await this.aiCli.Tools.modifyFile(novelDataPath, JSON.stringify(novelData, null, 2));
+      
+      // 保存大纲到独立文件
+      const projectDir = path.dirname(novelDataPath);
+      const outlineFilePath = path.join(projectDir, 'outline.md');
+      await this.aiCli.Tools.createFile(outlineFilePath, `# ${novelData.title} - 小说大纲\n\n${outline}`);
+      
+      return {
+        success: true,
+        message: '小说大纲生成成功',
+        outline,
+        outlineFilePath
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `小说大纲生成失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
+  // 生成章节规划
+  novelCreator_generateChapterPlan: async function(novelDataPath) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      if (!novelData.outline) {
+        return { success: false, message: '请先生成小说大纲' };
+      }
+      
+      // 计算建议章节数（基于目标字数，假设每章约3000字）
+      const targetChapters = Math.max(5, Math.ceil(novelData.targetWordCount / 3000));
+      
+      // 使用AI生成章节规划
+      const systemPrompt = `你是一个专业的小说创作助手。请根据以下小说信息和大纲，生成详细的章节规划：
+
+小说标题: ${novelData.title}
+主题思想: ${novelData.theme}
+小说类型: ${novelData.type}
+故事背景: ${novelData.background}
+目标字数: ${novelData.targetWordCount}
+建议章节数: ${targetChapters}
+
+小说大纲:
+${novelData.outline}
+
+请生成一个包含${targetChapters}章的章节规划。每章需要包括：
+1. 章节标题
+2. 章节摘要（50-100字）
+3. 关键情节
+4. 出场人物
+5. 字数目标
+
+请按JSON数组格式返回，每个元素是一个章节对象。`;
+      
+      const chapterPlanText = await this.aiCli.Tools.requestAI(
+        '小说创作助手',
+        systemPrompt,
+        0.7
+      );
+      
+      // 尝试解析JSON
+      let chapters;
+      try {
+        // 尝试从响应中提取JSON
+        const jsonMatch = chapterPlanText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          chapters = JSON.parse(jsonMatch[0]);
+        } else {
+          chapters = JSON.parse(chapterPlanText);
+        }
+      } catch (parseError) {
+        // 如果解析失败，手动创建章节结构
+        chapters = [];
+        const lines = chapterPlanText.split('\n').filter(line => line.trim());
+        let currentChapter = null;
+        
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          // 检测章节标题（包含"第X章"或"Chapter X"）
+          if (line.match(/第[一二三四五六七八九十百千万\d]+章|Chapter\s+\d+/)) {
+            if (currentChapter) {
+              chapters.push(currentChapter);
+            }
+            currentChapter = {
+              title: line.trim(),
+              summary: '',
+              keyPoints: [],
+              characters: [],
+              wordTarget: 3000,
+              content: '',
+              status: 'planned'
+            };
+          } else if (currentChapter) {
+            // 填充章节信息
+            if (line.includes('摘要') || line.includes('summary')) {
+              currentChapter.summary = lines[i + 1] || '';
+              i++;
+            }
+          }
+        }
+        
+        if (currentChapter && !chapters.includes(currentChapter)) {
+          chapters.push(currentChapter);
+        }
+        
+        // 如果章节数不足，补充
+        if (chapters.length < targetChapters) {
+          for (let i = chapters.length; i < targetChapters; i++) {
+            chapters.push({
+              title: `第${i + 1}章`,
+              summary: `待补充的章节摘要`,
+              keyPoints: ['待补充关键情节'],
+              characters: ['待补充出场人物'],
+              wordTarget: 3000,
+              content: '',
+              status: 'planned'
+            });
+          }
+        }
+      }
+      
+      // 更新小说数据
+      novelData.chapters = chapters;
+      novelData.chapterPlan = chapterPlanText;
+      novelData.status = 'chapter_planned';
+      novelData.updatedAt = new Date().toISOString();
+      
+      // 保存更新
+      await this.aiCli.Tools.modifyFile(novelDataPath, JSON.stringify(novelData, null, 2));
+      
+      // 保存章节规划到独立文件
+      const projectDir = path.dirname(novelDataPath);
+      const chapterPlanFilePath = path.join(projectDir, 'chapter_plan.md');
+      let chapterPlanMarkdown = `# ${novelData.title} - 章节规划\n\n`;
+      chapterPlanMarkdown += `总章节数: ${chapters.length}\n\n`;
+      
+      chapters.forEach((chapter, index) => {
+        chapterPlanMarkdown += `## ${chapter.title || `第${index + 1}章`}\n`;
+        chapterPlanMarkdown += `**摘要**: ${chapter.summary || '暂无摘要'}\n\n`;
+        chapterPlanMarkdown += `**关键情节**:\n`;
+        if (Array.isArray(chapter.keyPoints)) {
+          chapter.keyPoints.forEach(point => {
+            chapterPlanMarkdown += `- ${point}\n`;
+          });
+        }
+        chapterPlanMarkdown += `\n**出场人物**: ${Array.isArray(chapter.characters) ? chapter.characters.join('、') : chapter.characters || '待补充'}\n`;
+        chapterPlanMarkdown += `**字数目标**: ${chapter.wordTarget || 3000}字\n\n`;
+      });
+      
+      await this.aiCli.Tools.createFile(chapterPlanFilePath, chapterPlanMarkdown);
+      
+      return {
+        success: true,
+        message: `章节规划生成成功，共${chapters.length}章`,
+        chapterCount: chapters.length,
+        chapterPlanFilePath
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `章节规划生成失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
+  // 生成章节内容
+  novelCreator_generateChapterContent: async function(novelDataPath, chapterIndex, chapterCount = 1) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      if (!novelData.chapters || novelData.chapters.length === 0) {
+        return { success: false, message: '请先生成章节规划' };
+      }
+      
+      if (chapterIndex < 0 || chapterIndex >= novelData.chapters.length) {
+        return { success: false, message: `章节索引无效，有效范围: 0-${novelData.chapters.length - 1}` };
+      }
+      
+      const endIndex = Math.min(chapterIndex + chapterCount, novelData.chapters.length);
+      const chaptersToGenerate = novelData.chapters.slice(chapterIndex, endIndex);
+      const results = [];
+      
+      // 生成每个章节的内容
+      for (let i = 0; i < chaptersToGenerate.length; i++) {
+        const currentIndex = chapterIndex + i;
+        const chapter = novelData.chapters[currentIndex];
+        
+        // 构建上下文记忆
+        const previousChapters = novelData.chapters.slice(0, currentIndex);
+        const previousContent = previousChapters
+          .filter(ch => ch.content)
+          .map((ch, idx) => `第${idx + 1}章 ${ch.title}:\n${ch.content.substring(0, 500)}...`)
+          .join('\n\n');
+        
+        // 构建关键上下文信息
+        const contextSummary = `
+小说主题: ${novelData.theme}
+故事背景: ${novelData.background}
+主要人物: ${novelData.characters?.join('、') || '待补充'}
+${previousContent ? `\n前文摘要:\n${previousContent}` : ''}
+`;
+        
+        // 使用AI生成章节内容
+        const systemPrompt = `你是一个专业的小说作家。请根据以下信息创作小说章节内容：
+
+小说标题: ${novelData.title}
+小说类型: ${novelData.type}
+
+${contextSummary}
+
+当前章节: ${chapter.title || `第${currentIndex + 1}章`}
+章节摘要: ${chapter.summary || '暂无摘要'}
+关键情节: ${Array.isArray(chapter.keyPoints) ? chapter.keyPoints.join('，') : chapter.keyPoints || '待补充'}
+出场人物: ${Array.isArray(chapter.characters) ? chapter.characters.join('、') : chapter.characters || '待补充'}
+
+请创作完整的章节内容，要求:
+1. 符合小说类型和风格
+2. 情节连贯，符合章节摘要和关键情节
+3. 人物性格一致
+4. 语言生动，有感染力
+5. 字数控制在${chapter.wordTarget || 3000}字左右
+6. 以章节标题开始
+
+请直接输出章节正文内容，不需要额外的说明。`;
+        
+        const chapterContent = await this.aiCli.Tools.requestAI(
+          '专业小说作家',
+          systemPrompt,
+          0.8
+        );
+        
+        // 更新章节数据
+        chapter.content = chapterContent;
+        chapter.status = 'completed';
+        chapter.completedAt = new Date().toISOString();
+        chapter.wordCount = getWordCount(chapterContent);
+        
+        // 保存章节到独立文件
+        const projectDir = path.dirname(novelDataPath);
+        const chapterFilePath = path.join(projectDir, 'chapters', `chapter_${currentIndex + 1}.md`);
+        await this.aiCli.Tools.createFile(chapterFilePath, `# ${chapter.title || `第${currentIndex + 1}章`}\n\n${chapterContent}`);
+        
+        results.push({
+          chapterIndex: currentIndex,
+          title: chapter.title,
+          wordCount: chapter.wordCount,
+          filePath: chapterFilePath,
+          status: 'completed'
+        });
+        
+        // 更新上下文记忆
+        if (!novelData.contextMemory.keyEvents) {
+          novelData.contextMemory.keyEvents = [];
+        }
+        
+        // 提取关键事件（简单提取前几句话）
+        const firstSentence = chapterContent.split(/[。.!?]/)[0];
+        if (firstSentence) {
+          novelData.contextMemory.keyEvents.push({
+            chapter: currentIndex + 1,
+            event: firstSentence
+          });
+        }
+        
+        // 每完成一章后保存一次进度
+        novelData.updatedAt = new Date().toISOString();
+        await this.aiCli.Tools.modifyFile(novelDataPath, JSON.stringify(novelData, null, 2));
+      }
+      
+      // 更新进度文件
+      const projectDir = path.dirname(novelDataPath);
+      const progressFilePath = path.join(projectDir, 'progress.json');
+      const progressData = {
+        updatedAt: new Date().toISOString(),
+        totalChapters: novelData.chapters.length,
+        completedChapters: novelData.chapters.filter(ch => ch.content && ch.content.trim()).length,
+        totalWords: novelData.chapters.reduce((sum, ch) => sum + getWordCount(ch.content || ''), 0)
+      };
+      
+      await this.aiCli.Tools.modifyFile(progressFilePath, JSON.stringify(progressData, null, 2));
+      
+      return {
+        success: true,
+        message: `成功生成${results.length}章内容`,
+        results,
+        progress: formatProgress(novelData)
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `章节内容生成失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
+  // 断点续写
+  novelCreator_resumeWriting: async function(novelDataPath) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      if (!novelData.chapters || novelData.chapters.length === 0) {
+        return { success: false, message: '没有找到章节规划，无法续写' };
+      }
+      
+      // 找到第一个未完成的章节
+      const firstIncompleteIndex = novelData.chapters.findIndex(ch => 
+        !ch.content || !ch.content.trim() || ch.status !== 'completed'
+      );
+      
+      if (firstIncompleteIndex === -1) {
+        return {
+          success: true,
+          message: '所有章节已完成，无需续写',
+          progress: formatProgress(novelData)
+        };
+      }
+      
+      // 继续生成内容
+      const result = await this.novelCreator_generateChapterContent(
+        novelDataPath,
+        firstIncompleteIndex,
+        1
+      );
+      
+      return {
+        success: true,
+        message: `续写完成第${firstIncompleteIndex + 1}章`,
+        nextChapter: firstIncompleteIndex + 1,
+        result,
+        progress: formatProgress(novelData)
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `断点续写失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
+  // 获取写作进度
+  novelCreator_getProgress: async function(novelDataPath) {
+    try {
+      // 读取小说数据
+      const dataContent = await this.aiCli.Tools.readFile(novelDataPath);
+      if (!dataContent) {
+        return { success: false, message: '无法读取小说数据文件' };
+      }
+      
+      const novelData = JSON.parse(dataContent);
+      
+      // 读取进度文件
+      const projectDir = path.dirname(novelDataPath);
+      const progressFilePath = path.join(projectDir, 'progress.json');
+      let progressData = {};
+      
+      if (await this.aiCli.Tools.fileExists(progressFilePath)) {
+        const progressContent = await this.aiCli.Tools.readFile(progressFilePath);
+        if (progressContent) {
+          progressData = JSON.parse(progressContent);
+        }
+      }
+      
+      // 计算当前进度
+      const progress = formatProgress(novelData);
+      
+      // 获取章节状态统计
+      const chapterStatus = {
+        total: novelData.chapters?.length || 0,
+        completed: novelData.chapters?.filter(ch => ch.content && ch.content.trim()).length || 0,
+        planned: novelData.chapters?.filter(ch => ch.status === 'planned').length || 0,
+        inProgress: novelData.chapters?.filter(ch => ch.status === 'in_progress').length || 0
+      };
+      
+      // 获取最近活动
+      const recentActivity = novelData.chapters
+        ?.filter(ch => ch.completedAt)
+        .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+        .slice(0, 3)
+        .map(ch => ({
+          title: ch.title || `第${novelData.chapters.indexOf(ch) + 1}章`,
+          completedAt: ch.completedAt,
+          wordCount: ch.wordCount
+        })) || [];
+      
+      return {
+        success: true,
+        progress,
+        chapterStatus,
+        recentActivity,
+        novelInfo: {
+          title: novelData.title,
+          type: novelData.type,
+          theme: novelData.theme,
+          targetWordCount: novelData.targetWordCount,
+          createdAt: novelData.createdAt,
+          updatedAt: novelData.updatedAt,
+          status: novelData.status
+        },
+        projectDir
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `获取进度失败: ${error.message}`,
+        error: error.toString()
+      };
+    }
+  },
+  
+  // 扩展工具使用说明
+  novelCreator_extensionRule: function() {
+    return `# 小说创作扩展工具使用说明
+
+## 概述
+本扩展工具提供完整的小说创作功能，帮助用户基于AI生成完整的小说作品。支持从概念到成品的全流程创作。
+
+## 功能列表
+1. **初始化小说项目** - 创建小说项目结构和数据文件
+2. **生成小说大纲** - 基于主题、类型和背景生成详细大纲
+3. **生成章节规划** - 根据大纲和目标字数生成章节规划
+4. **生成章节内容** - 逐章生成小说正文内容
+5. **断点续写** - 从上次中断处继续创作
+6. **获取写作进度** - 查看创作进度和统计信息
+
+## 使用流程
+推荐按以下顺序使用本扩展工具：
+
+### 第一步：初始化项目
+\`\`\`
+const result = await novelCreator_initializeNovel(
+  "我的小说标题",      // 小说标题
+  "爱与牺牲的主题",     // 主题思想
+  50000,              // 目标字数
+  "奇幻",             // 小说类型
+  "中世纪魔法世界",    // 故事背景
+  "./output"          // 输出目录（可选）
+);
+\`\`\`
+
+### 第二步：生成大纲
+\`\`\`
+const result = await novelCreator_generateOutline("novel_data.json路径");
+\`\`\`
+
+### 第三步：生成章节规划
+\`\`\`
+const result = await novelCreator_generateChapterPlan("novel_data.json路径");
+\`\`\`
+
+### 第四步：生成章节内容
+\`\`\`
+// 生成单个章节
+const result = await novelCreator_generateChapterContent(
+  "novel_data.json路径",
+  0  // 章节索引（从0开始）
+);
+
+// 批量生成多个章节
+const result = await novelCreator_generateChapterContent(
+  "novel_data.json路径",
+  0,  // 起始章节索引
+  3   // 生成章节数量
+);
+\`\`\`
+
+### 第五步：断点续写
+\`\`\`
+const result = await novelCreator_resumeWriting("novel_data.json路径");
+\`\`\`
+
+### 第六步：查看进度
+\`\`\`
+const result = await novelCreator_getProgress("novel_data.json路径");
+\`\`\`
+
+## 输出文件结构
+项目目录包含以下文件：
+- \`novel_data.json\` - 小说核心数据
+- \`outline.md\` - 小说大纲
+- \`chapter_plan.md\` - 章节规划
+- \`progress.json\` - 进度统计
+- \`chapters/\` - 章节内容目录
+  - \`chapter_1.md\` - 第1章内容
+  - \`chapter_2.md\` - 第2章内容
+  - ...
+
+## 上下文管理机制
+1. **记忆机制**：记录关键情节和人物特征
+2. **前文摘要**：生成新章节时提供前文摘要
+3. **一致性检查**：保持人物性格和情节连贯
+4. **进度跟踪**：实时统计字数、章节完成情况
+
+## 注意事项
+1. 使用前请确保AI配置正确
+2. 大篇幅创作时建议分批次进行
+3. 可随时使用断点续写功能继续创作
+4. 定期检查进度确保创作方向正确。
+5. 小说默认作者：DeepFish AI
+
+## 技术支持
+如有问题，请参考DeepFish AI文档或联系开发者。`;
+  }
 };
 
+// 导出模块
 module.exports = {
-    descriptions,
-    functions,
+  name: 'novelCreator',
+  extensionDescription: '提供完整的小说创作功能，包括大纲生成、章节规划、内容生成、进度管理和断点续写。支持长篇小说创作，内置上下文管理机制确保剧情连贯和人设统一。',
+  descriptions,
+  functions,
 };

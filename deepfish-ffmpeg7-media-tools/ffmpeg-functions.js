@@ -22,7 +22,7 @@ const checkFfmpeg = async () => {
       command = 'which ffmpeg';
     }
     
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
     return { installed: true, error: null };
   } catch (error) {
     return { 
@@ -38,7 +38,7 @@ const checkFfmpeg = async () => {
  */
 const getFfmpegVersion = async () => {
   try {
-    const result = await this.Tools.executeCommand('ffmpeg -version');
+    const result = await this.aiCl.Tools.executeCommand('ffmpeg -version');
     // 从输出中提取版本号
     const versionMatch = result.match(/ffmpeg version (\S+)/);
     const version = versionMatch ? versionMatch[1] : '未知版本';
@@ -132,7 +132,7 @@ functions.ffmpeg_convertVideoFormat = async (params) => {
     finalOutputPath = finalOutputPath.replace(/\.[^/.]+$/, "") + `.${format}`;
   }
   const command = `ffmpeg -i "${inputPath}" ${quality} "${finalOutputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `视频格式转换完成: ${finalOutputPath}`,
@@ -159,7 +159,7 @@ functions.ffmpeg_extractAudioFromVideo = async (params) => {
     finalAudioPath = finalAudioPath.replace(/\.[^/.]+$/, "") + `.${audioFormat}`;
   }
   const command = `ffmpeg -i "${videoPath}" -q:a 0 -map a "${finalAudioPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `音频提取完成: ${finalAudioPath}`,
@@ -187,7 +187,7 @@ functions.ffmpeg_resizeVideo = async (params) => {
     scaleFilter = `scale=${width}:${height}`;
   }
   const command = `ffmpeg -i "${inputPath}" -vf "${scaleFilter}" -c:a copy "${outputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `视频尺寸调整完成: ${width}x${height}`,
@@ -209,7 +209,7 @@ functions.ffmpeg_trimVideo = async (params) => {
     throw new Error(`FFmpeg检查失败: ${checkResult.message}`);
   }
   const command = `ffmpeg -i "${inputPath}" -ss ${startTime} -t ${duration} -c copy "${outputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `视频剪切完成: 从 ${startTime} 开始，持续 ${duration}`,
@@ -237,16 +237,16 @@ functions.ffmpeg_mergeVideos = async (params) => {
     videoPaths.forEach(path => {
       listContent += `file '${path}'\n`;
     });
-    await this.Tools.createFile(listFilePath, listContent);
+    await this.aiCl.Tools.createFile(listFilePath, listContent);
     const command = `ffmpeg -f concat -safe 0 -i "${listFilePath}" -c copy "${outputPath}"`;
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
     // 删除临时文件
-    await this.Tools.deleteFile(listFilePath);
+    await this.aiCl.Tools.deleteFile(listFilePath);
   } else if (method === 'overlay') {
     // 简单叠加示例（实际应用中可能需要更复杂的处理）
     if (videoPaths.length === 2) {
       const command = `ffmpeg -i "${videoPaths[0]}" -i "${videoPaths[1]}" -filter_complex "[0:v][1:v]overlay=10:10" "${outputPath}"`;
-      await this.Tools.executeCommand(command);
+      await this.aiCl.Tools.executeCommand(command);
     } else {
       throw new Error('叠加模式目前仅支持两个视频');
     }
@@ -283,7 +283,7 @@ functions.ffmpeg_convertAudioFormat = async (params) => {
     bitrateOption = `-b:a ${bitrate}`;
   }
   const command = `ffmpeg -i "${inputPath}" ${bitrateOption} "${finalOutputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `音频格式转换完成: ${format}`,
@@ -305,7 +305,7 @@ functions.ffmpeg_adjustAudioVolume = async (params) => {
     throw new Error(`FFmpeg检查失败: ${checkResult.message}`);
   }
   const command = `ffmpeg -i "${inputPath}" -filter:a "volume=${volume}" "${outputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `音频音量调整完成: ${volume}倍`,
@@ -336,7 +336,7 @@ functions.ffmpeg_extractVideoThumbnail = async (params) => {
     sizeOption = `-s ${size}`;
   }
   const command = `ffmpeg -i "${videoPath}" -ss ${time} -vframes 1 ${sizeOption} "${finalOutputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `视频缩略图提取完成: ${time}`,
@@ -359,7 +359,7 @@ functions.ffmpeg_getMediaInfo = async (params) => {
   }
   try {
     const command = `ffprobe -v quiet -print_format json -show_format -show_streams "${mediaPath}"`;
-    const result = await this.Tools.executeCommand(command);
+    const result = await this.aiCl.Tools.executeCommand(command);
     // 解析JSON结果
     const info = JSON.parse(result);
     // 提取关键信息
@@ -395,7 +395,7 @@ functions.ffmpeg_getMediaInfo = async (params) => {
     // 如果ffprobe失败，尝试使用ffmpeg获取基本信息
     try {
       const fallbackCommand = `ffmpeg -i "${mediaPath}"`;
-      await this.Tools.executeCommand(fallbackCommand);
+      await this.aiCl.Tools.executeCommand(fallbackCommand);
     } catch (ffmpegError) {
       // 从错误信息中提取信息
       const errorStr = ffmpegError.toString();
@@ -468,7 +468,7 @@ functions.ffmpeg_addWatermark = async (params) => {
   // 添加输出路径
   command += ` "${outputPath}"`;
   try {
-    const result = await this.Tools.executeCommand(command);
+    const result = await this.aiCl.Tools.executeCommand(command);
     return {
       success: true,
       message: `水印添加完成: ${outputPath}`,
@@ -502,7 +502,7 @@ functions.ffmpeg_adjustBitrate = async (params) => {
   // 添加输出路径
   command += ` "${outputPath}"`;
   try {
-    const result = await this.Tools.executeCommand(command);
+    const result = await this.aiCl.Tools.executeCommand(command);
     return {
       success: true,
       message: `视频比特率调整完成: ${outputPath}`,
@@ -535,7 +535,7 @@ functions.ffmpeg_mergeVideoAudio = async (params) => {
     command = `ffmpeg -i "${videoPath}" -i "${audioPath}" -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 "${outputPath}"`;
   }
   try {
-    const result = await this.Tools.executeCommand(command);
+    const result = await this.aiCl.Tools.executeCommand(command);
     return {
       success: true,
       message: `视频音频合并完成: ${outputPath}`,
@@ -582,7 +582,7 @@ functions.ffmpeg_videoToGif = async (params) => {
     command += ` "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -627,7 +627,7 @@ functions.ffmpeg_cropVideo = async (params) => {
     const command = `ffmpeg -i "${videoPath}" -vf "crop=${width}:${height}:${x}:${y}" "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -673,7 +673,7 @@ functions.ffmpeg_rotateVideo = async (params) => {
     const command = `ffmpeg -i "${videoPath}" -vf "${filter}" "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -712,7 +712,7 @@ functions.ffmpeg_changeVideoSpeed = async (params) => {
     const command = `ffmpeg -i "${videoPath}" -filter_complex "[0:v]setpts=${1/speed}*PTS[v];[0:a]atempo=${speed}[a]" -map "[v]" -map "[a]" "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -755,7 +755,7 @@ functions.ffmpeg_addSubtitles = async (params) => {
     command += ` -c:a copy "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -800,7 +800,7 @@ functions.ffmpeg_extractVideoFrames = async (params) => {
     command += ` "${outputDir}/frame_%04d.${format || 'jpg'}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -838,11 +838,11 @@ functions.ffmpeg_concatVideos = async (params) => {
     // 创建临时文件列表
     const listPath = `${outputPath}.txt`;
     const listContent = videoPaths.map(path => `file '${path}'`).join('\n');
-    await this.Tools.fs.writeFile(listPath, listContent);
+    await this.aiCl.Tools.fs.writeFile(listPath, listContent);
     const command = `ffmpeg -f concat -safe 0 -i "${listPath}" -c copy "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -882,7 +882,7 @@ functions.ffmpeg_mixAudios = async (params) => {
     const command = `ffmpeg ${inputs} -filter_complex "${mixFilter}" "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -921,7 +921,7 @@ functions.ffmpeg_compressVideo = async (params) => {
     const command = `ffmpeg -i "${videoPath}" -c:v libx264 -crf ${crf || 23} -preset ${preset || 'medium'} -c:a copy "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -968,7 +968,7 @@ functions.ffmpeg_addTextOverlay = async (params) => {
     const command = `ffmpeg -i "${videoPath}" -vf "${filter}" "${outputPath}"`;
 
     // 执行命令
-    await this.Tools.executeCommand(command);
+    await this.aiCl.Tools.executeCommand(command);
 
     return {
       success: true,
@@ -998,7 +998,7 @@ functions.ffmpeg_adjustVideoVolume = async (params) => {
   // 构建调整视频音量命令
   // 使用-filter:a调整音频，-c:v copy保持视频流不重新编码
   const command = `ffmpeg -i "${videoPath}" -filter:a "volume=${volume}" -c:v copy "${outputPath}"`;
-  await this.Tools.executeCommand(command);
+  await this.aiCl.Tools.executeCommand(command);
   return {
     success: true,
     message: `视频音量调整完成: ${volume}倍`,

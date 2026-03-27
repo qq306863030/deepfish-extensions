@@ -1,6 +1,6 @@
 # DeepFish SFTP Download Extension
 
-**English** | [中文](./README_CN.md)
+**English** | [中文](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-sftp-downloader/README_CN.md)
 
 ## Overview
 
@@ -33,11 +33,11 @@ The DeepFish SFTP Download Extension is a specialized tool designed for DeepFish
 
 2. **Install SFTP Download Extension**:
    ```bash
-   npm install deepfish-sftp-downloader -g
+   npm install @deepfish-ai/sftp-downloader -g
    ```
 
-3. **Dependencies**:
-   This extension depends on the `ssh2-sftp-client` library, which will be installed automatically.
+3. **Run the extension in AI workflow**:
+   Type in command line: ai "I want to download files from SFTP server"
 
 ## Function List & Description
 

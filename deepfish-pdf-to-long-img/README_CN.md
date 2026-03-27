@@ -1,6 +1,6 @@
 # DeepFish PDF转长图工具
 
-中文 | [English](./README.md)
+中文 | [English](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-pdf-to-long-img/README.md)
 
 一个基于DeepFish框架的扩展工具，用于将PDF文件转换为垂直拼接的长图（PNG格式）。支持单文件转换和批量处理。
 
@@ -16,7 +16,8 @@
    npm install @deepfish-ai/pdf-to-long-img -g
    ```
 
+3. 在命令行中，您可以通过输入命令使用此扩展：`ai pdf转长图`
+
 ## 函数列表及功能描述
 
 - **pdfConversion_toLongImage**: 将PDF文件转换为长图，将PDF的每一页拼接成一个垂直排列的PNG长图
-

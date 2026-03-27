@@ -1,6 +1,6 @@
 # @deepfish-ai/ffmpeg7-media-tools
 
-[English](./README.md) | 中文
+[English](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-ffmpeg7-media-tools/README.md) | 中文
 
 基于FFmpeg 7的音频视频处理工具函数集，包含24个媒体处理函数，支持视频格式转换、音频提取、视频编辑等常见媒体处理任务。
 
@@ -14,21 +14,36 @@
 
 ## 🚀 快速开始
 
-### 前提条件
+按照以下三个步骤安装和使用此扩展：
 
-首先，安装全局deepfish-ai库：
+### 步骤1: 安装DeepFish AI
+首先，安装全局deepfish-ai库（如果尚未安装）：
 
 ```bash
 npm install deepfish-ai -g
 ```
 
-### 安装
-
+### 步骤2: 安装此扩展
 全局安装本包：
 
 ```bash
 npm install @deepfish-ai/ffmpeg7-media-tools -g
 ```
+
+### 步骤3: 在DeepFish AI中使用
+安装完成后，您可以在DeepFish AI中通过简单的命令使用扩展功能。例如：
+
+```bash
+ai 将video.mp4转换为avi格式
+```
+
+或
+
+```bash
+ai 从video.mp4中提取音频
+```
+
+AI会自动使用此扩展中的相应FFmpeg函数。
 
 ### FFmpeg安装
 
@@ -144,6 +159,7 @@ MIT License - 详见LICENSE文件
 ## 📞 支持
 
 如有问题或建议，请：
+
 1. 查看本文档的故障排除部分
 2. 提交GitHub Issue
 3. 联系维护团队

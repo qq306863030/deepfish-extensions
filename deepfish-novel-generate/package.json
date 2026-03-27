@@ -1,36 +1,23 @@
 {
   "name": "@deepfish-ai/novel-generate",
-  "version": "1.0.1",
-  "description": "小说生成扩展",
+  "version": "1.0.2",
+  "description": "A DeepFish AI extension tool for automated novel generation, creating complete stories with outlines, chapters, and context management",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "keywords": [
-    "deepfish-ai",
     "novel",
     "generate",
-    "extension"
+    "ai",
+    "writing",
+    "story"
   ],
   "author": "DeepFish AI",
-  "license": "ISC",
+  "license": "MIT",
+  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/qq306863030/deepfish-extensions.git"
   },
-  "dependencies": {
-    "fs-extra": "^11.3.4"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "eslint": "^10.0.3",
-    "globals": "^17.4.0"
-  },
-  "files": [
-    "index.js",
-    "README.md",
-    "README_CN.md"
-  ],
   "bugs": {
     "url": "https://github.com/qq306863030/deepfish-extensions/issues"
   },

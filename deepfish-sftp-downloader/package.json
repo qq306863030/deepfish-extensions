@@ -1,29 +1,25 @@
 {
-  "name": "deepfish-sftp-downloader",
-  "version": "1.1.0",
-  "description": "A DeepFish AI extension tool for downloading files and directories from SFTP servers with real-time progress display and configuration management",
+  "name": "@deepfish-ai/sftp-downloader",
+  "version": "1.0.3",
+  "description": "A DeepFish AI extension tool for SFTP file downloads with real-time progress tracking and configuration management",
   "main": "index.js",
-  "type": "commonjs",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/qq306863030/deepfish-extensions.git"
-  },
-  "author": "DeepFish AI",
-  "license": "MIT",
-  "dependencies": {
-    "ssh2-sftp-client": "^10.0.0"
-  },
-  "files": [
-    "index.js",
-    "README_CN.md",
-    "README.md"
-  ],
+  "scripts": {},
   "keywords": [
-    "deepfish",
     "sftp",
     "download",
-    "extension",
-    "configuration",
-    "interactive"
-  ]
+    "file",
+    "transfer",
+    "config.example.js"
+  ],
+  "author": "DeepFish AI",
+  "license": "MIT",
+  "devDependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git"
+  },
+  "bugs": {
+    "url": "https://github.com/qq306863030/deepfish-extensions/issues"
+  },
+  "homepage": "https://github.com/qq306863030/deepfish-extensions#readme"
 }

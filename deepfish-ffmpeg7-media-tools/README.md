@@ -1,6 +1,6 @@
 # @deepfish-ai/ffmpeg7-media-tools
 
-English | [中文](./README_CN.md)
+English | [中文](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-ffmpeg7-media-tools/README_CN.md)
 
 A comprehensive FFmpeg 7 based audio and video processing toolkit with 24 media processing functions, supporting video format conversion, audio extraction, video editing, and other common media processing tasks.
 
@@ -14,21 +14,36 @@ A comprehensive FFmpeg 7 based audio and video processing toolkit with 24 media 
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Follow these three steps to install and use this extension:
 
-First, install the global deepfish-ai library:
+### Step 1: Install DeepFish AI
+First, install the global deepfish-ai library (if not already installed):
 
 ```bash
 npm install deepfish-ai -g
 ```
 
-### Installation
-
+### Step 2: Install This Extension
 Install this package globally:
 
 ```bash
 npm install @deepfish-ai/ffmpeg7-media-tools -g
 ```
+
+### Step 3: Use in DeepFish AI
+Once installed, you can use the extension functions in DeepFish AI by simply asking the AI to perform media processing tasks. For example:
+
+```bash
+ai convert video.mp4 to avi format
+```
+
+or
+
+```bash
+ai extract audio from video.mp4
+```
+
+The AI will automatically use the appropriate FFmpeg functions from this extension.
 
 ### FFmpeg Installation
 
@@ -144,6 +159,7 @@ MIT License - See LICENSE file
 ## 📞 Support
 
 For questions or suggestions, please:
+
 1. Check the Troubleshooting section in this documentation
 2. Submit a GitHub Issue
 3. Contact the maintenance team

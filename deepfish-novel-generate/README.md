@@ -1,185 +1,227 @@
-# Novel Generation Extension Tool
+# DeepFish Novel Creation Extension Tool
 
-[中文](./README_CN.md) | English
+English | [中文](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-novel-generate/README_CN.md)
 
 ## Overview
 
-`@deepfish-ai/novel-generate` is an AI workflow extension tool designed for generating long novels, aiming to bypass AI API context length limitations through local file storage mechanisms. This module provides complete workflow support from outline creation, chapter generation to final book merging.
+DeepFish Novel Creation Extension Tool is a powerful AI-assisted writing tool designed for the complete workflow of novel creation. This tool leverages AI technology to help authors create complete novels from concept to finished product, including outline generation, chapter planning, content creation, progress management, and checkpoint resumption.
+
+## Core Features
+
+### 1. Intelligent Outline Generation
+- Automatically generate detailed novel outlines based on themes, genres, and settings
+- Include complete elements such as core conflicts, main characters, story structure
+- Ensure outlines meet target word count and genre requirements
+
+### 2. Chapter Planning System
+- Intelligently plan chapter structure based on outlines and target word count
+- Generate titles, summaries, key plot points, and characters for each chapter
+- Support custom chapter counts and word allocation
+
+### 3. AI Content Creation
+- Generate high-quality novel content chapter by chapter
+- Built-in context management mechanism to maintain plot continuity and character consistency
+- Support long-form writing with automatic handling of large texts
+
+### 4. Progress Management & Tracking
+- Real-time statistics for writing progress, chapter completion, and word counts
+- Visual progress reports to understand creative status
+- Support checkpoint resumption for seamless continuation
+
+### 5. Project Management System
+- Complete project file structure management
+- Automatic saving of all creative data
+- Support for managing multiple projects simultaneously
 
 ## Quick Start
 
-1. Install deepfish-ai global library:
+### Installation Steps
+
+1. **Install deepfish-ai globally**
    ```bash
    npm install deepfish-ai -g
    ```
 
-2. Install novel generation extension tool:
+2. **Install novel creation extension globally**
    ```bash
-   npm install @deepfish-ai/novel-generate -g
+   npm install deepfish-novel-generate -g
    ```
 
-3. Call relevant functions in AI workflow to generate novels
+3. **Start using**
+   Call novel creation functions in DeepFish AI environment:
+   ```
+   ai help me write a fantasy novel
+   ```
 
-## Function List and Description
+### Basic Usage Flow
 
-| Function Name | Core Function |
-|--------------|---------------|
-| `generateNovelChapter` | Generate novel chapter content based on chapter title, outline, style and word count, save as local file |
-| `createNovelOutline` | Generate overall novel outline including plot structure, character settings, theme ideas, etc. |
-| `summarizeChapter` | Generate chapter summary, extract key plots, character development and foreshadowing for subsequent context |
-| `getNovelContext` | Read content of specified chapter range, return summary or key information for providing context when generating subsequent chapters |
-| `mergeNovelChapters` | Merge all chapters into a complete novel file, can add table of contents, cover and chapter titles |
-| `analyzeNovelStructure` | Analyze generated chapters to ensure plot coherence, check character development and plot logic |
-| `getNovelProgress` | Get novel generation progress information, including number of generated chapters, word count statistics, etc. |
+1. **Initialize novel project**
+   ```javascript
+   const result = await novelCreator_initializeNovel(
+     "Journey of Magic",
+     "A story of courage and growth through adventure",
+     50000,
+     "Fantasy",
+     "Medieval magical world"
+   );
+   ```
 
-## Usage Steps
+2. **Generate novel outline**
+   ```javascript
+   const result = await novelCreator_generateOutline("novel_data.json");
+   ```
 
-### Step 1: Environment Preparation
-1. Ensure Node.js environment is installed
-2. Ensure AI API access permissions are configured
+3. **Generate chapter plan**
+   ```javascript
+   const result = await novelCreator_generateChapterPlan("novel_data.json");
+   ```
 
-### Step 2: Create Novel Outline
-```javascript
-const outline = await this.Tools.novelGenerate.createNovelOutline({
-  genre: "Fantasy Cultivation",
-  mainCharacters: "Protagonist: Lin Feng, talented but humble origins; Heroine: Yun Yao, mysterious sect heir",
-  targetWordCount: 2000000
-});
+4. **Start writing**
+   ```javascript
+   // Generate Chapter 1
+   const result = await novelCreator_generateChapterContent("novel_data.json", 0);
+   
+   // Generate 3 chapters in batch
+   const result = await novelCreator_generateChapterContent("novel_data.json", 1, 3);
+   ```
+
+5. **Check progress**
+   ```javascript
+   const result = await novelCreator_getProgress("novel_data.json");
+   ```
+
+6. **Resume from checkpoint**
+   ```javascript
+   const result = await novelCreator_resumeWriting("novel_data.json");
+   ```
+
+## Function List
+
+| Function Name | Description |
+|--------------|-------------|
+| `novelCreator_initializeNovel` | Initialize novel project, create project structure and data files |
+| `novelCreator_generateOutline` | Generate detailed novel outline based on input information |
+| `novelCreator_generateChapterPlan` | Generate chapter plan based on outline |
+| `novelCreator_generateChapterContent` | Generate novel content for specified chapters |
+| `novelCreator_resumeWriting` | Continue writing unfinished chapters from checkpoint |
+| `novelCreator_getProgress` | Get current writing progress and statistics |
+| `novelCreator_extensionRule` | Get usage documentation for the extension tool |
+
+## Project Structure
+
+Created novel projects include the following file structure:
+
 ```
-
-### Step 3: Generate Chapter Content
-```javascript
-// Loop to generate multiple chapters
-for (let i = 1; i <= 100; i++) {
-  const chapter = await this.Tools.novelGenerate.generateNovelChapter({
-    chapterNumber: i,
-    chapterTitle: `Chapter ${i}: The Path of Cultivation`,
-    outline: outline,
-    style: "Classical Xianxia",
-    wordCount: 2000
-  });
-}
-```
-
-### Step 4: Monitor Generation Progress
-```javascript
-const progress = await this.Tools.novelGenerate.getNovelProgress({
-  includeDetails: true
-});
-
-console.log(`Completed ${progress.completedChapters} chapters, total ${progress.totalWords} words`);
-```
-
-### Step 5: Merge into Book
-```javascript
-const mergeResult = await this.Tools.novelGenerate.mergeNovelChapters({
-  startChapter: 1,
-  endChapter: 100,
-  format: "txt",
-  includeToc: true
-});
-```
-
-## Techniques to Avoid API Context Limitations
-
-### 1. Local File Storage
-- All chapter content is stored locally as `.txt` files
-- Each API call only passes necessary context summaries rather than complete content
-- Use file system as "external memory" to extend AI context capacity
-
-### 2. Intelligent Context Extraction
-- Use `getNovelContext` function to extract key plot nodes
-- Select summary granularity based on chapter importance
-- Maintain key character information and plot twists
-
-### 3. Batch Processing
-- Split long novels into multiple batches for processing
-- Perform structural analysis and context update after each batch completion
-- Avoid passing too much historical information at once
-
-### 4. Progress Checkpoints
-- Regularly save progress snapshots
-- Record summaries and key points of generated chapters
-- Facilitate recovery after interruption
-
-## File Storage Structure
-
-Recommended file organization:
-```
-./novel/
-├── outline.json              # Novel outline
-├── chapters/                 # Chapter files directory
-│   ├── chapter_1.txt        # Chapter 1
-│   ├── chapter_2.txt        # Chapter 2
+novel_novel_title/
+├── novel_data.json          # Novel core data file
+├── outline.md               # Novel outline document
+├── chapter_plan.md          # Chapter planning document
+├── progress.json            # Progress statistics file
+├── chapters/                # Chapter content directory
+│   ├── chapter_1.md        # Chapter 1 content
+│   ├── chapter_2.md        # Chapter 2 content
 │   └── ...
-├── summaries/               # Chapter summaries directory (optional)
-│   ├── summary_1-10.json
-│   ├── summary_11-20.json
-│   └── ...
-├── analysis/                # Analysis reports directory (optional)
-│   ├── analysis_batch1.json
-│   └── ...
-└── complete/                # Merged complete novel
-    ├── novel.txt
-    └── novel.epub
+└── metadata/               # Metadata directory (optional)
 ```
 
-## Precautions
+## Technical Features
 
-### 1. API Call Frequency
-- Reasonably control API call frequency to avoid triggering limits
-- Consider using batch processing to reduce call times
-- Implement error retry mechanism
+### 1. Context Management Mechanism
+- **Memory System**: Record key plot points, character traits, and story settings
+- **Consistency Check**: Ensure character personality and plot development continuity
+- **Previous Context Summary**: Automatically provide previous context when generating new chapters
 
-### 2. Content Consistency
-- Regularly use `analyzeNovelStructure` to check consistency
-- Maintain uniformity in character personality and world view settings
-- Pay attention to timeline and plot logic coherence
+### 2. Long-form Processing Capability
+- **Chapter-based Processing**: Split long novels into manageable chapters
+- **Progress Tracking**: Real-time monitoring of writing progress and word count
+- **Checkpoint Resumption**: Support pausing and resuming creation at any time
 
-### 3. Resource Management
-- Monitor disk space usage
-- Regularly backup important files
-- Clean temporary files to avoid space waste
+### 3. Intelligent Writing Assistance
+- **Genre Adaptation**: Adjust writing style according to different novel genres
+- **Theme Consistency**: Ensure content always revolves around the core theme
+- **Quality Control**: Optimize content quality through multiple iterations
 
-### 4. Quality Control
-- Set minimum chapter word count to ensure substantial content
-- Key plot chapters can be optimized multiple times
-- Reader feedback mechanism (if needed)
+## Use Cases
 
-## Troubleshooting
+### 1. Novice Writers
+- Lack writing experience, need AI assistance to complete full works
+- Require structured guidance and outline support
+- Want to learn professional creative processes
 
-### Common Issue 1: API Context Limit Exceeded
-**Symptoms:** AI returns incomplete content or errors
-**Solution:** Reduce context content passed at once, use more refined summaries
+### 2. Professional Writers
+- Seek creative inspiration and new ideas
+- Need efficient handling of long-form writing
+- Want to reduce writing pressure and focus on creativity
 
-### Common Issue 2: Incoherent Plot
-**Symptoms:** Contradictions between previous and subsequent chapters
-**Solution:** Increase frequency of `analyzeNovelStructure` calls, strengthen context passing
+### 3. Content Creators
+- Need to produce novel content in batches
+- Manage multiple creative projects
+- Maintain creation quality and efficiency
 
-### Common Issue 3: Slow Generation Speed
-**Symptoms:** Chapter generation takes too long
-**Solution:** Adjust target word count, optimize prompts, consider parallel generation of independent subplots
+## Best Practices
 
-### Common Issue 4: File Management Confusion
-**Symptoms:** Unable to find specific chapters or files
-**Solution:** Strictly follow recommended directory structure, use progress tracking functions
+### 1. Planning Phase
+- Carefully define themes and story backgrounds
+- Set reasonable target word counts
+- Choose appropriate novel genres
 
-## Performance Optimization Suggestions
+### 2. Writing Phase
+- Generate content in batches to avoid generating too much at once
+- Regularly check progress to ensure correct writing direction
+- Use checkpoint resumption to maintain writing continuity
 
-1. **Caching Mechanism:** Cache frequently used outlines and character settings
-2. **Parallel Processing:** Try parallel generation of independent subplots
-3. **Incremental Updates:** Only update changed content
-4. **Compressed Storage:** Use compressed format for historical chapters
+### 3. Post-processing Phase
+- Review AI-generated content and make necessary modifications
+- Maintain character consistency and plot coherence
+- Add personal style and creative elements
 
-## Extension Suggestions
+## Frequently Asked Questions
 
-For further functional expansion, consider:
+### Q1: How is the quality of AI-generated content ensured?
+A: This tool ensures quality through:
+- Detailed outline and chapter planning guidance
+- Context management to ensure coherence
+- Multiple iteration optimization mechanisms
+- Users can review and modify at any time
 
-1. **Multi-language Support:** Add multi-language generation and translation functions
-2. **Style Transfer:** Implement conversion between different writing styles
-3. **Interactive Generation:** Support reader choices affecting plot direction
-4. **Automatic Proofreading:** Integrate grammar checking and polishing functions
+### Q2: What novel genres are supported?
+A: Supports mainstream novel genres, including but not limited to:
+- Fantasy, Science Fiction, Mystery, Romance
+- Historical, Urban, Wuxia, Xuanhuan
+- Other custom genres
+
+### Q3: How are long novels handled?
+A: Using chapter-based processing strategy:
+- Split long novels into multiple chapters
+- Each chapter is independently generated and saved
+- Maintain overall coherence through context management
+
+### Q4: Does it support both Chinese and English writing?
+A: Currently primarily supports Chinese writing, but can also be used for English writing. Word count function supports both Chinese and English.
+
+### Q5: How is data security ensured?
+A: All creative data is stored locally and not uploaded to any servers. Users have complete control over their creative content.
+
+## Technical Support
+
+For issues or suggestions, please contact us through:
+
+- GitHub Issues: [deepfish-extensions](https://github.com/qq306863030/deepfish-extensions)
+- Documentation: [DeepFish AI Documentation](https://deepfish.ai/docs)
+- Email: support@deepfish.ai
+
+## Version History
+
+- v1.0.0 (Initial Release)
+  - Basic novel creation functionality
+  - Outline generation and chapter planning
+  - Content generation and progress management
+  - Checkpoint resumption support
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 
 ---
 
-By rationally using this extension tool, you can efficiently generate long novels up to 2 million words while avoiding problems caused by API context limitations. It is recommended to conduct small-scale tests before actual use to familiarize yourself with the parameters and return formats of each function.
+**Start your creative journey! Let AI be your writing partner and create wonderful novel worlds together.**

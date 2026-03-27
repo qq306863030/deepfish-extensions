@@ -1,185 +1,227 @@
-# 小说生成扩展工具
+# DeepFish 小说创作扩展工具
 
-中文 | [English](./README.md)
+[English](https://github.com/qq306863030/deepfish-extensions/blob/master/deepfish-novel-generate/README.md) | 中文
 
 ## 概述
 
-`@deepfish-ai/novel-generate` 是一个专为生成长篇小说设计的AI工作流扩展工具，旨在通过本地文件存储机制规避AI API的上下文长度限制。该模块提供了从大纲创作、章节生成到最终合并成书的完整工作流支持。
+DeepFish 小说创作扩展工具是一个强大的AI辅助创作工具，专为长篇小说的全流程创作设计。本工具利用AI技术，帮助作者从概念到成品完成完整的小说创作，包括大纲生成、章节规划、内容创作、进度管理和断点续写等功能。
+
+## 核心功能
+
+### 1. 智能大纲生成
+- 根据主题思想、小说类型和背景自动生成详细的小说大纲
+- 包含核心冲突、主要人物、故事结构等完整要素
+- 确保大纲符合目标字数和类型要求
+
+### 2. 章节规划系统
+- 基于大纲和目标字数智能规划章节结构
+- 为每个章节生成标题、摘要、关键情节和出场人物
+- 支持自定义章节数和字数分配
+
+### 3. AI内容创作
+- 逐章生成高质量的小说正文内容
+- 内置上下文管理机制，保持剧情连贯和人设统一
+- 支持长篇创作，自动处理大篇幅文本
+
+### 4. 进度管理与跟踪
+- 实时统计写作进度、章节完成情况和字数统计
+- 可视化进度报告，了解创作状态
+- 支持断点续写，随时继续创作
+
+### 5. 项目管理系统
+- 完整的项目文件结构管理
+- 自动保存所有创作数据
+- 支持多项目同时管理
 
 ## 快速开始
 
-1. 安装deepfish-ai全局库：
+### 安装步骤
+
+1. **全局安装 deepfish-ai**
    ```bash
    npm install deepfish-ai -g
    ```
 
-2. 安装小说生成扩展工具：
+2. **全局安装小说创作扩展**
    ```bash
-   npm install @deepfish-ai/novel-generate -g
+   npm install deepfish-novel-generate -g
    ```
 
-3. 在AI工作流中调用相关函数生成小说
+3. **开始使用**
+   在DeepFish AI环境中调用小说创作功能：
+   ```
+   ai 帮我写一部奇幻小说
+   ```
 
-## 函数列表及功能描述
+### 基础使用流程
 
-| 函数名称 | 核心功能 |
-|---------|---------|
-| `generateNovelChapter` | 根据章节标题、大纲、风格和字数生成小说章节内容，保存为本地文件 |
-| `createNovelOutline` | 生成整个小说的总体大纲，包括情节结构、人物设定、主题思想等 |
-| `summarizeChapter` | 生成章节摘要，提取关键情节、人物发展和伏笔，用于后续上下文 |
-| `getNovelContext` | 读取指定章节范围的内容，返回摘要或关键信息，用于生成后续章节时提供上下文 |
-| `mergeNovelChapters` | 将所有章节合并为一个完整小说文件，可添加目录、封面和章节标题 |
-| `analyzeNovelStructure` | 分析已生成章节，确保情节连贯性，检查人物发展和情节逻辑 |
-| `getNovelProgress` | 获取小说生成进度信息，包括已生成章节数、字数统计等 |
+1. **初始化小说项目**
+   ```javascript
+   const result = await novelCreator_initializeNovel(
+     "魔法的旅程",
+     "勇气与成长的冒险故事",
+     50000,
+     "奇幻",
+     "中世纪魔法世界"
+   );
+   ```
 
-## 使用步骤
+2. **生成小说大纲**
+   ```javascript
+   const result = await novelCreator_generateOutline("novel_data.json");
+   ```
 
-### 第1步：环境准备
-1. 确保Node.js环境已安装
-2. 确保AI API访问权限已配置
+3. **生成章节规划**
+   ```javascript
+   const result = await novelCreator_generateChapterPlan("novel_data.json");
+   ```
 
-### 第2步：创建小说大纲
-```javascript
-const outline = await this.Tools.novelGenerate.createNovelOutline({
-  genre: "修仙玄幻",
-  mainCharacters: "主角：林风，天赋异禀但出身平凡；女主角：云瑶，神秘宗派传人",
-  targetWordCount: 2000000
-});
+4. **开始创作**
+   ```javascript
+   // 生成第1章
+   const result = await novelCreator_generateChapterContent("novel_data.json", 0);
+   
+   // 批量生成3章
+   const result = await novelCreator_generateChapterContent("novel_data.json", 1, 3);
+   ```
+
+5. **查看进度**
+   ```javascript
+   const result = await novelCreator_getProgress("novel_data.json");
+   ```
+
+6. **断点续写**
+   ```javascript
+   const result = await novelCreator_resumeWriting("novel_data.json");
+   ```
+
+## 函数列表
+
+| 函数名称 | 功能描述 |
+|---------|----------|
+| `novelCreator_initializeNovel` | 初始化小说项目，创建项目结构和数据文件 |
+| `novelCreator_generateOutline` | 基于输入信息生成详细的小说大纲 |
+| `novelCreator_generateChapterPlan` | 根据大纲生成章节规划 |
+| `novelCreator_generateChapterContent` | 生成指定章节的小说内容 |
+| `novelCreator_resumeWriting` | 从断点处继续创作未完成的章节 |
+| `novelCreator_getProgress` | 获取当前的写作进度和统计信息 |
+| `novelCreator_extensionRule` | 获取扩展工具的使用说明文档 |
+
+## 项目结构
+
+创建的小说项目包含以下文件结构：
+
 ```
-
-### 第3步：生成章节内容
-```javascript
-// 循环生成多个章节
-for (let i = 1; i <= 100; i++) {
-  const chapter = await this.Tools.novelGenerate.generateNovelChapter({
-    chapterNumber: i,
-    chapterTitle: `第${i}章 修行之路`,
-    outline: outline,
-    style: "古典仙侠",
-    wordCount: 2000
-  });
-}
-```
-
-### 第4步：监控生成进度
-```javascript
-const progress = await this.Tools.novelGenerate.getNovelProgress({
-  includeDetails: true
-});
-
-console.log(`已完成 ${progress.completedChapters} 章，共 ${progress.totalWords} 字`);
-```
-
-### 第5步：合并成书
-```javascript
-const mergeResult = await this.Tools.novelGenerate.mergeNovelChapters({
-  startChapter: 1,
-  endChapter: 100,
-  format: "txt",
-  includeToc: true
-});
-```
-
-## 避免API上下文限制的技巧
-
-### 1. 本地文件存储
-- 所有章节内容均以`.txt`文件形式存储在本地
-- 每次API调用只传递必要的上下文摘要而非完整内容
-- 利用文件系统作为"外部记忆"扩展AI的上下文容量
-
-### 2. 智能上下文提取
-- 使用`getNovelContext`函数提取关键情节节点
-- 根据章节重要性选择摘要粒度
-- 保持角色关键信息和情节转折点
-
-### 3. 分批次处理
-- 将长篇小说分成多个批次处理
-- 每批完成后进行结构分析和上下文更新
-- 避免一次性传递过多历史信息
-
-### 4. 进度检查点
-- 定期保存进度快照
-- 记录已生成章节的摘要和关键点
-- 便于中断后恢复生成过程
-
-## 文件存储结构
-
-推荐的文件组织方式：
-```
-./novel/
-├── outline.json              # 小说大纲
-├── chapters/                 # 章节文件目录
-│   ├── chapter_1.txt        # 第1章
-│   ├── chapter_2.txt        # 第2章
+novel_小说标题/
+├── novel_data.json          # 小说核心数据文件
+├── outline.md               # 小说大纲文档
+├── chapter_plan.md          # 章节规划文档
+├── progress.json            # 进度统计文件
+├── chapters/                # 章节内容目录
+│   ├── chapter_1.md        # 第1章内容
+│   ├── chapter_2.md        # 第2章内容
 │   └── ...
-├── summaries/               # 章节摘要目录（可选）
-│   ├── summary_1-10.json
-│   ├── summary_11-20.json
-│   └── ...
-├── analysis/                # 分析报告目录（可选）
-│   ├── analysis_batch1.json
-│   └── ...
-└── complete/                # 合并后的完整小说
-    ├── novel.txt
-    └── novel.epub
+└── metadata/               # 元数据目录（可选）
 ```
 
-## 注意事项
+## 技术特点
 
-### 1. API调用频率
-- 合理控制API调用频率，避免触发限制
-- 考虑使用批处理减少调用次数
-- 实现错误重试机制
+### 1. 上下文管理机制
+- **记忆系统**：记录关键情节、人物特征和故事设定
+- **一致性检查**：确保人物性格、情节发展的连贯性
+- **前文摘要**：生成新章节时自动提供前文摘要
 
-### 2. 内容一致性
-- 定期使用`analyzeNovelStructure`检查一致性
-- 保持角色性格、世界观设定的统一
-- 注意时间线和情节逻辑的连贯
+### 2. 大篇幅处理能力
+- **分章处理**：将长篇小说拆分为可管理的章节
+- **进度跟踪**：实时监控写作进度和字数统计
+- **断点续写**：支持随时暂停和继续创作
 
-### 3. 资源管理
-- 监控磁盘空间使用情况
-- 定期备份重要文件
-- 清理临时文件避免空间浪费
+### 3. 智能创作辅助
+- **类型适应**：根据不同小说类型调整创作风格
+- **主题保持**：确保内容始终围绕核心主题
+- **质量控制**：通过多次迭代优化内容质量
 
-### 4. 质量控制
-- 设置章节字数下限确保内容充实
-- 关键情节章节可进行多次优化
-- 读者反馈机制（如需要）
+## 使用场景
 
-## 故障排除
+### 1. 新手作家
+- 缺乏写作经验，需要AI辅助完成完整作品
+- 需要结构化指导和大纲支持
+- 希望学习专业创作流程
 
-### 常见问题1：API上下文超限
-**症状：** AI返回内容不完整或出错
-**解决：** 减少单次传递的上下文内容，使用更精细的摘要
+### 2. 专业作家
+- 寻求创作灵感和新思路
+- 需要高效处理长篇创作
+- 希望减轻写作压力，专注于创意
 
-### 常见问题2：情节不连贯
-**症状：** 前后章节出现矛盾
-**解决：** 增加`analyzeNovelStructure`的调用频率，强化上下文传递
+### 3. 内容创作者
+- 需要批量产出小说内容
+- 管理多个创作项目
+- 保持创作质量和效率
 
-### 常见问题3：生成速度慢
-**症状：** 章节生成耗时过长
-**解决：** 调整目标字数，优化提示词，考虑并行生成独立支线情节
+## 最佳实践
 
-### 常见问题4：文件管理混乱
-**症状：** 找不到特定章节或文件
-**解决：** 严格遵循推荐的目录结构，使用进度跟踪功能
+### 1. 规划阶段
+- 仔细定义主题思想和故事背景
+- 设定合理的目标字数
+- 选择适合的小说类型
 
-## 性能优化建议
+### 2. 创作阶段
+- 分批次生成内容，避免一次性生成过多
+- 定期检查进度，确保创作方向正确
+- 使用断点续写功能保持创作连续性
 
-1. **缓存机制：** 对频繁使用的大纲、人物设定进行缓存
-2. **并行处理：** 独立支线情节可尝试并行生成
-3. **增量更新：** 仅更新发生变化的部分内容
-4. **压缩存储：** 对历史章节使用压缩格式保存
+### 3. 后期处理
+- 审核AI生成的内容，进行必要修改
+- 保持人物性格和情节的一致性
+- 添加个人风格和创意元素
 
-## 扩展建议
+## 常见问题
 
-如需进一步扩展功能，可考虑：
+### Q1: AI生成的内容质量如何保证？
+A: 本工具通过以下方式保证质量：
+- 详细的大纲和章节规划指导
+- 上下文管理确保连贯性
+- 多次迭代优化机制
+- 用户可以随时审核和修改
 
-1. **多语言支持：** 添加多语言生成和翻译功能
-2. **风格迁移：** 实现不同写作风格间的转换
-3. **互动生成：** 支持读者选择影响情节走向
-4. **自动校对：** 集成语法检查和润色功能
+### Q2: 支持哪些小说类型？
+A: 支持主流小说类型，包括但不限于：
+- 奇幻、科幻、悬疑、言情
+- 历史、都市、武侠、玄幻
+- 其他自定义类型
+
+### Q3: 如何处理长篇小说？
+A: 采用分章处理策略：
+- 将长篇小说拆分为多个章节
+- 每个章节独立生成和保存
+- 通过上下文管理保持整体连贯
+
+### Q4: 支持中文和英文创作吗？
+A: 目前主要支持中文创作，但也可用于英文创作。字数统计功能同时支持中英文。
+
+### Q5: 数据安全如何保障？
+A: 所有创作数据保存在本地，不上传至任何服务器。用户可以完全控制自己的创作内容。
+
+## 技术支持
+
+如有问题或建议，请通过以下方式联系我们：
+
+- GitHub Issues: [deepfish-extensions](https://github.com/qq306863030/deepfish-extensions)
+- 文档: [DeepFish AI 文档](https://deepfish.ai/docs)
+- 邮箱: support@deepfish.ai
+
+## 版本历史
+
+- v1.0.0 (初始版本)
+  - 基础小说创作功能
+  - 大纲生成和章节规划
+  - 内容生成和进度管理
+  - 断点续写支持
+
+## 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](./LICENSE) 文件。
 
 ---
 
-通过合理利用本扩展工具，您可以高效地生成长达200万字的长篇小说，同时避免API上下文限制带来的问题。建议在实际使用前先进行小规模测试，熟悉各函数的参数和返回格式。
+**开始你的创作之旅吧！让AI成为你的创作伙伴，共同打造精彩的小说世界。**

@@ -1,36 +1,22 @@
 {
   "name": "@deepfish-ai/pdf-to-long-img",
-  "version": "1.0.1",
-  "type": "commonjs",
+  "version": "1.0.3",
+  "description": "A DeepFish AI extension tool for converting PDF documents into seamless long images for easy viewing and sharing",
   "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
+  "scripts": {},
   "keywords": [
-    "deepfish",
     "pdf",
-    "long-img"
+    "long",
+    "image",
+    "conversion"
   ],
   "author": "DeepFish AI",
-  "license": "ISC",
-  "description": "Convert PDF files to long images",
+  "license": "MIT",
+  "devDependencies": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/qq306863030/deepfish-extensions.git"
   },
-  "dependencies": {
-    "canvas": "^3.2.1",
-    "fs-extra": "^11.3.4",
-    "pdf-to-img": "^5.0.0",
-    "sharp": "^0.34.5"
-  },
-  "files": [
-    "index.js",
-    "core.js",
-    "README.md",
-    "README_CN.md"
-  ],
-  "devDependencies": {},
   "bugs": {
     "url": "https://github.com/qq306863030/deepfish-extensions/issues"
   },

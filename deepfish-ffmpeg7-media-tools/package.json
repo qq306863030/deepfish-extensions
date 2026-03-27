@@ -1,7 +1,8 @@
 {
   "name": "@deepfish-ai/ffmpeg7-media-tools",
-  "version": "1.0.1",
-  "description": "基于FFmpeg 7的音频视频处理工具函数集",
+  "version": "1.0.2",
+  "type": "commonjs",
+  "description": "A DeepFish AI extension tool for comprehensive FFmpeg 7 media processing with 24 audio/video manipulation functions",
   "main": "index.js",
   "scripts": {},
   "keywords": [
