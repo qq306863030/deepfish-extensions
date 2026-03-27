@@ -2,29 +2,6 @@
 // 提供完整的小说创作功能，包括大纲生成、章节规划、内容生成、进度管理和断点续写
 
 const path = require('path');
-const fs = require('fs');
-
-// fs-extra兼容函数
-async function ensureDir(dirPath) {
-  if (!fs.existsSync(dirPath)) {
-    fs.mkdirSync(dirPath, { recursive: true });
-  }
-}
-
-async function readJsonFile(filePath) {
-  if (!fs.existsSync(filePath)) {
-    return null;
-  }
-  const content = fs.readFileSync(filePath, 'utf8');
-  return JSON.parse(content);
-}
-
-async function writeJsonFile(filePath, data) {
-  const dir = path.dirname(filePath);
-  await ensureDir(dir);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
-}
-
 
 // 工具函数：计算中文字数
 function countChineseCharacters(text) {

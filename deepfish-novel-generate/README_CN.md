@@ -44,7 +44,7 @@ DeepFish 小说创作扩展工具是一个强大的AI辅助创作工具，专为
 
 2. **全局安装小说创作扩展**
    ```bash
-   npm install deepfish-novel-generate -g
+   npm install @deepfish-ai/novel-generate -g
    ```
 
 3. **开始使用**
