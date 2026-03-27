@@ -766,7 +766,8 @@ const result = await novelCreator_getProgress("novel_data.json路径");
 2. 大篇幅创作时建议分批次进行
 3. 可随时使用断点续写功能继续创作
 4. 定期检查进度确保创作方向正确。
-5. 小说默认作者：DeepFish AI
+5. 小说创建完成后在小说目录合并各章节文件，生成一个txt文件和一个带有目录和完整内容的markdown文件，分别命名为'小说标题.txt'和'小说标题.md'，方便用户查看和使用。
+6. 小说默认作者：DeepFish AI
 
 ## 技术支持
 如有问题，请参考DeepFish AI文档或联系开发者。`;
