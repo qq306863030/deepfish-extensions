@@ -659,7 +659,7 @@ const functions = {
 
 module.exports = {
   name: 'sftpDownload',
-  extensionDescription: '提供SFTP文件下载功能，支持从SFTP服务器下载文件和目录，并实时显示下载进度。支持配置管理和交互式操作。',
+  description: '提供SFTP文件下载功能，支持从SFTP服务器下载文件和目录，并实时显示下载进度。支持配置管理和交互式操作。',
   descriptions,
   functions,
 };

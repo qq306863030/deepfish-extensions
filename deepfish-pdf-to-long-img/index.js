@@ -36,7 +36,7 @@ const functions = {
 
 module.exports = {
   name: 'pdf-to-long-img',
-  extensionDescription: 'A DeepFish AI extension tool for converting PDF documents into seamless long images for easy viewing and sharing',
+  description: 'A DeepFish AI extension tool for converting PDF documents into seamless long images for easy viewing and sharing',
   descriptions,
   functions,
 };

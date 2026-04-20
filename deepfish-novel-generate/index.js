@@ -931,7 +931,7 @@ const result = await novelCreator_exportNovel("novel_data.json路径");
 // 导出模块
 module.exports = {
   name: 'novelCreator',
-  extensionDescription: '提供完整的小说创作功能，包括大纲生成、章节规划、内容生成、进度管理和断点续写。支持长篇小说创作，内置上下文管理机制确保剧情连贯和人设统一。',
+  description: '提供完整的小说创作功能，包括大纲生成、章节规划、内容生成、进度管理和断点续写。支持长篇小说创作，内置上下文管理机制确保剧情连贯和人设统一。',
   descriptions,
   functions,
 };
