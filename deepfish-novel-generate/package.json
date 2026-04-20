@@ -1,6 +1,6 @@
 {
   "name": "@deepfish-ai/novel-generate",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "A DeepFish AI extension tool for automated novel generation, creating complete stories with outlines, chapters, and context management",
   "main": "index.js",
   "scripts": {},

@@ -44,7 +44,7 @@ DeepFish Novel Creation Extension Tool is a powerful AI-assisted writing tool de
 
 2. **Install novel creation extension globally**
    ```bash
-   npm install deepfish-novel-generate -g
+   npm install @deepfish-ai/novel-generate -g
    ```
 
 3. **Start using**
