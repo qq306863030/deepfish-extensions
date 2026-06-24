@@ -1,0 +1,12 @@
+{
+  "name": "deepfish-ssh-remote-control",
+  "version": "1.0.0",
+  "description": "Deepfish SSH remote control tool module using ssh2 and ssh2-sftp-client.",
+  "main": "index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "inquirer": "^8.2.7",
+    "ssh2": "latest",
+    "ssh2-sftp-client": "latest"
+  }
+}
