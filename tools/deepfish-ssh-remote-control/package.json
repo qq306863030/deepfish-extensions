@@ -5,6 +5,7 @@
   "main": "index.js",
   "type": "commonjs",
   "dependencies": {
+    "crypto-js": "^4.2.0",
     "inquirer": "^8.2.7",
     "ssh2": "latest",
     "ssh2-sftp-client": "latest"

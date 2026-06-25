@@ -4,6 +4,19 @@ const readline = require('readline');
 const inquirer = require('inquirer');
 const { Client } = require('ssh2');
 const SftpClient = require('ssh2-sftp-client');
+const SALT = 'ROMAN-123'
+const CryptoJS = require('crypto-js');
+
+function encrypt(text) {
+  if (!text) return '';
+  return CryptoJS.AES.encrypt(text, SALT).toString();
+}
+
+function decrypt(ciphertext) {
+  if (!ciphertext) return '';
+  const bytes = CryptoJS.AES.decrypt(ciphertext, SALT);
+  return bytes.toString(CryptoJS.enc.Utf8);
+}
 
 const CONFIG_FILE = path.join(__dirname, 'ssh_config.json');
 
@@ -25,6 +38,18 @@ function readConfig() {
     throw new Error('配置文件格式错误：顶层必须是对象并包含 list 数组');
   }
   if (typeof config.curSSH !== 'string') config.curSSH = '';
+  // 迁移：将未加密的明文密码加密存储
+  let migrated = false;
+  for (const conn of config.list) {
+    if (conn.password && !conn._encrypted) {
+      conn.password = encrypt(conn.password);
+      conn._encrypted = true;
+      migrated = true;
+    }
+  }
+  if (migrated) {
+    writeConfig(config);
+  }
   return config;
 }
 
@@ -64,7 +89,8 @@ function validateConnection(conn, list, originalName) {
     host: String(conn.host || '').trim(),
     port: normalizePort(conn.port),
     username: String(conn.username || '').trim(),
-    password: conn.password ? String(conn.password) : '',
+    password: conn.password ? encrypt(String(conn.password)) : '',
+    _encrypted: true,
     privateKey: conn.privateKey ? stripQuotes(conn.privateKey) : '',
     passphrase: conn.passphrase ? String(conn.passphrase) : '',
   };
@@ -106,7 +132,7 @@ function buildSshConfig(conn) {
     sshConfig.privateKey = fs.readFileSync(conn.privateKey);
     if (conn.passphrase) sshConfig.passphrase = conn.passphrase;
   } else {
-    sshConfig.password = conn.password;
+    sshConfig.password = decrypt(conn.password);
   }
   return sshConfig;
 }
