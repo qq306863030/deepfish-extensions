@@ -1,14 +1,4 @@
 {
-  "curSSH": "jd",
-  "list": [
-    {
-      "name": "jd",
-      "host": "116.196.68.99",
-      "port": 22,
-      "username": "root",
-      "password": "",
-      "privateKey": "C:\\roman123.pem",
-      "passphrase": ""
-    }
-  ]
+  "curSSH": "",
+  "list": []
 }
