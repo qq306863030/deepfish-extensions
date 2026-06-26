@@ -1,5 +1,7 @@
 # SSH 远程控制工具
 
+**中文** | [English](./README.en.md)
+
 ## 功能介绍
 
 SSH 远程控制工具是 Deepfish 的自定义工具模块，提供基于 SSH2 协议的远程服务器管理能力。支持多连接管理、远程命令执行、文件上传/下载等功能，适用于日常服务器运维、文件传输、远程调试等场景。
@@ -45,7 +47,7 @@ npm install -g deepfish-ai
 ### 添加工具
 
 ```bash
-ai tools add deepfish-ssh-remote-control
+npm install -g @deepfish-ai/deepfish-ssh-remote-control
 ```
 
 ### 使用示例
