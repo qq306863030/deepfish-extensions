@@ -23,6 +23,14 @@
   "bugs": {
     "url": "https://github.com/qq306863030/deepfish-extensions/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.js",
+    "README.md",
+    "README.en.md"
+  ],
   "main": "index.js",
   "type": "commonjs",
   "dependencies": {
