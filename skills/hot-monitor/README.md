@@ -19,9 +19,9 @@ A multi-source hotspot monitoring system designed for tracking hot topics and te
 npm install deepfish-ai -g
 
 # 2. Install this skill
-ai skill add hot-monitor
-ai skill ls
-ai skill enable hot-monitor
+ai skills add hot-monitor
+ai skills ls
+ai skills enable hot-monitor
 ```
 
 ### Usage

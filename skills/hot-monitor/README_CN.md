@@ -19,9 +19,9 @@
 npm install deepfish-ai -g
 
 # 2. 安装当前项目
-ai skill add hot-monitor
-ai skill ls
-ai skill enable hot-monitor
+ai skills add hot-monitor
+ai skills ls
+ai skills enable hot-monitor
 ```
 
 ### 使用
