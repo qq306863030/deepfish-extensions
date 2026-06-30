@@ -1,7 +1,7 @@
 ---
 name: "hot-monitor"
 description: "AI热点监控与报告生成工具。支持多数据源采集（Bing、HackerNews、GitHub Trending、Sogou、Bilibili），生成结构化Markdown报告和JSON数据输出。"
-homepage: "https://github.com/qq306863030/deepfish-extensions/tree/master/skills/hot-monitor
+homepage: "https://github.com/qq306863030/deepfish-extensions/tree/master/skills/hot-monitor"
 ---
 
 # Hot Monitor - AI热点监控与报告生成
