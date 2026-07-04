@@ -345,25 +345,54 @@ async function ensureInitialized() {
   return config;
 }
 
-async function runCommand(conn, command, cwd) {
+async function runCommand(conn, command, cwd, timeoutMs) {
   return new Promise((resolve, reject) => {
     const client = new Client();
     let stdout = '';
     let stderr = '';
+    let timeoutHandle = null;
+    let settled = false;
+
+    const finalize = (result) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      client.end();
+      resolve(result);
+    };
+
+    const abort = (err) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutHandle) clearTimeout(timeoutHandle);
+      client.end();
+      reject(err);
+    };
+
+    // 命令执行超时
+    if (timeoutMs && timeoutMs > 0) {
+      timeoutHandle = setTimeout(() => {
+        abort(new Error(`命令执行超时（${timeoutMs} ms）`));
+      }, timeoutMs);
+    }
+
     const finalCommand = cwd ? `cd ${shellQuote(cwd)} && ${command}` : command;
-    process.stdout.write(`\x1b[32m[执行] ${finalCommand}\x1b[0m\n`);
+    process.stdout.write(`\x1b[32m[执行] ${finalCommand}\x1b[0m`);
+    if (timeoutMs) {
+      process.stdout.write(` \x1b[33m[超时: ${timeoutMs} ms]\x1b[0m`);
+    }
+    process.stdout.write('\n');
+
     client
       .on('ready', () => {
         client.exec(finalCommand, (err, stream) => {
           if (err) {
-            client.end();
-            reject(err);
+            abort(err);
             return;
           }
           stream
             .on('close', (code, signal) => {
-              client.end();
-              resolve({ stdout, stderr, code, signal });
+              finalize({ stdout, stderr, code, signal });
             })
             .on('data', (data) => {
               stdout += data.toString();
@@ -373,7 +402,7 @@ async function runCommand(conn, command, cwd) {
           });
         });
       })
-      .on('error', reject)
+      .on('error', abort)
       .connect(buildSshConfig(conn));
   });
 }
@@ -607,7 +636,9 @@ async function sshRemoteControl(action, options = {}) {
     if (normalizedAction === 'exec_command') {
       const command = String(params.command || '').trim();
       if (!command) throw new Error('执行远程命令需要提供 command');
-      const result = await runCommand(current, command, params.cwd);
+      const timeoutMs = params.timeout !== undefined ? Number(params.timeout) : 0;
+      const effectiveTimeout = timeoutMs > 0 ? Math.max(timeoutMs, 300000) : 0;
+      const result = await runCommand(current, command, params.cwd, effectiveTimeout);
       return { success: true, data: result };
     }
 
@@ -662,10 +693,10 @@ const descriptions = [
         '- set_current_interactive: options 可为空 {}。交互式设置当前连接。',
         '- switch_connection: options 必填 { "name": "<连接别名>" }。',
         '- delete_connection: options 必填 { "name": "<连接别名>" }。',
-        '- exec_command: options 必填 { "command": "<要执行的远程命令>", "cwd": "<可选远程工作目录>" }。',
+        '- exec_command: options 必填 { "command": "<要执行的远程命令>", "cwd": "<可选远程工作目录>", "timeout": "<可选命令执行超时毫秒数，最小300000>" }。',
         '- upload_path: options 必填 { "localPath": "<本地文件或目录绝对路径>", "remotePath": "<远程目标绝对路径>" }。',
         '- download_path: options 必填 { "remotePath": "<远程文件或目录绝对路径>", "localPath": "<本地目标绝对路径>" }。',
-        '示例：{"action":"upload_path","options":{"localPath":"C:/Users/me/1.png","remotePath":"/root/1.png"}}。',
+        '示例：{"action":"upload_path","options":{"localPath":"C:/Users/me/1.png","remotePath":"/root/1.png"}} 或 {"action":"exec_command","options":{"command":"ls -la","timeout":600000}}。',
         '敏感配置仅由本地程序读写，返回数据不会包含密码、私钥内容或口令。',
       ].join('\n'),
       parameters: {
@@ -695,6 +726,7 @@ const descriptions = [
             properties: {
               command: { type: 'string', description: 'exec_command 要执行的远程命令。' },
               cwd: { type: 'string', description: 'exec_command 的远程工作目录（可选）。' },
+              timeout: { type: 'number', description: 'exec_command 的命令执行超时毫秒数，最小值为 300000（可选）。' },
               localPath: { type: 'string', description: 'upload_path/download_path 的本地路径（绝对路径）。' },
               remotePath: { type: 'string', description: 'upload_path/download_path 的远程路径（绝对路径）。' },
               name: { type: 'string', description: 'switch_connection/delete_connection 的连接别名。' },
