@@ -313,12 +313,22 @@ async function setCurrentInteractively() {
   if (!config.list.length) throw new Error('连接列表为空，请先新增远程连接配置');
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const name = await ask(rl, '请输入要设为当前连接的 name：');
-    const target = config.list.find((item) => item.name === String(name).trim());
-    if (!target) throw new Error('指定连接不存在');
-    config.curSSH = target.name;
-    writeConfig(config);
-    return safeConnection(target);
+    while (true) {
+      const name = await ask(rl, '请输入要设为当前连接的 name：');
+      const trimmed = String(name).trim();
+      if (!trimmed) {
+        process.stdout.write('输入不能为空，请重新输入。\n');
+        continue;
+      }
+      const target = config.list.find((item) => item.name === trimmed);
+      if (!target) {
+        process.stdout.write(`错误：连接 "${trimmed}" 不存在，请重新输入。\n`);
+        continue;
+      }
+      config.curSSH = target.name;
+      writeConfig(config);
+      return safeConnection(target);
+    }
   } finally {
     rl.close();
   }
@@ -341,6 +351,7 @@ async function runCommand(conn, command, cwd) {
     let stdout = '';
     let stderr = '';
     const finalCommand = cwd ? `cd ${shellQuote(cwd)} && ${command}` : command;
+    process.stdout.write(`\x1b[32m[执行] ${finalCommand}\x1b[0m\n`);
     client
       .on('ready', () => {
         client.exec(finalCommand, (err, stream) => {
