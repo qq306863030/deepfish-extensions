@@ -1,4 +1,5 @@
-const fs = require('fs');
+const fs = require('fs-extra');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
 const inquirer = require('inquirer');
@@ -7,6 +8,7 @@ const SftpClient = require('ssh2-sftp-client');
 const SALT = 'ROMAN-123'
 const CryptoJS = require('crypto-js');
 
+let that
 function encrypt(text) {
   if (!text) return '';
   return CryptoJS.AES.encrypt(text, SALT).toString();
@@ -18,7 +20,7 @@ function decrypt(ciphertext) {
   return bytes.toString(CryptoJS.enc.Utf8);
 }
 
-const CONFIG_FILE = path.join(__dirname, 'ssh_config.json');
+const CONFIG_FILE = path.join(os.homedir(), '.deepfish-ai', 'external-tools', 'ssh_config.json');
 
 function emptyConfig() {
   return { curSSH: '', list: [] };
@@ -26,6 +28,7 @@ function emptyConfig() {
 
 function ensureConfigFile() {
   if (!fs.existsSync(CONFIG_FILE)) {
+    fs.ensureDirSync(path.dirname(CONFIG_FILE));
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(emptyConfig(), null, 2), 'utf8');
   }
 }
@@ -198,8 +201,7 @@ async function askConnection(list) {
     const value = String(input || '').trim();
     return value ? true : `${label} 不能为空`;
   };
-
-  const answers = await inquirer.prompt([
+  const answers = await (that?.remotePrompt || inquirer.prompt)([
     {
       type: 'input',
       name: 'name',
@@ -566,6 +568,7 @@ function resolveInvocation(action, options) {
 }
 
 async function sshRemoteControl(action, options = {}) {
+  that = this;
   const { action: normalizedAction, params } = resolveInvocation(action, options);
   try {
 
@@ -619,11 +622,11 @@ async function sshRemoteControl(action, options = {}) {
       return { success: true, data: { current: safeConnection(target) } };
     }
 
-    if (normalizedAction === 'init') {
-      const config = await ensureInitialized();
-      const current = getCurrentConnection(config);
-      return { success: true, data: { curSSH: config.curSSH, current: safeConnection(current) } };
-    }
+    // if (normalizedAction === 'init') {
+    //   const config = await ensureInitialized();
+    //   const current = getCurrentConnection(config);
+    //   return { success: true, data: { curSSH: config.curSSH, current: safeConnection(current) } };
+    // }
 
     const config = await ensureInitialized();
     const current = getCurrentConnection(config);
@@ -685,7 +688,7 @@ const descriptions = [
         '本地 SSH 远程管理工具。调用时必须严格按如下结构传参：{ "action": "<操作类型>", "options": { <该操作所需的参数> } }。',
         'options 必须是对象（不能为字符串、不能为空对象，除非该 action 不需要参数）。所有该操作所需的参数都要放进 options 内部，不要放在顶层。',
         '可用 action 及其 options 必填字段：',
-        '- init: options 可为空 {}。用于初始化或读取当前连接。',
+        // '- init: options 可为空 {}。用于初始化或读取当前连接。',
         '- test_connection: options 可为空 {}。仅测试当前连接的 SSH 认证是否成功，认证失败时返回详细诊断信息。',
         '- list_connections: options 可为空 {}。返回所有连接和当前 curSSH。',
         '- get_config_path: options 可为空 {}。返回本地配置文件的绝对路径，供用户查看。',
@@ -705,7 +708,7 @@ const descriptions = [
           action: {
             type: 'string',
             enum: [
-              'init',
+              // 'init',
               'test_connection',
               'upload_path',
               'download_path',

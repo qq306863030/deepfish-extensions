@@ -35,6 +35,7 @@
   "type": "commonjs",
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "fs-extra": "^11.3.6",
     "inquirer": "^8.2.7",
     "ssh2": "latest",
     "ssh2-sftp-client": "latest"
