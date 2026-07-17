@@ -8,7 +8,6 @@ const SftpClient = require('ssh2-sftp-client');
 const SALT = 'ROMAN-123'
 const CryptoJS = require('crypto-js');
 
-let that
 function encrypt(text) {
   if (!text) return '';
   return CryptoJS.AES.encrypt(text, SALT).toString();
@@ -201,7 +200,7 @@ async function askConnection(list) {
     const value = String(input || '').trim();
     return value ? true : `${label} 不能为空`;
   };
-  const answers = await (that?.remotePrompt || inquirer.prompt)([
+  const answers = await inquirer.prompt([
     {
       type: 'input',
       name: 'name',
@@ -568,7 +567,6 @@ function resolveInvocation(action, options) {
 }
 
 async function sshRemoteControl(action, options = {}) {
-  that = this;
   const { action: normalizedAction, params } = resolveInvocation(action, options);
   try {
 
