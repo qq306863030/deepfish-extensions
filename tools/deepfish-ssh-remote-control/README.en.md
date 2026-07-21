@@ -10,31 +10,40 @@ Core capabilities:
 
 - **Connection management**: Add, switch, and delete SSH connections interactively. Supports both password and private key authentication.
 - **Remote command execution**: Execute shell commands on remote servers and retrieve command output.
-- **File transfer**: Upload or download a single file or an entire directory with progress display.
+- **File transfer**: Upload or download a single file or an entire directory via SFTP with progress display.
 - **Connection testing**: Quickly verify whether the current SSH connection is available, with detailed diagnostics for authentication failures.
 - **Persistent configuration**: Store connection configurations in an encrypted local JSON file to help protect sensitive information.
 
+## Module Structure
+
+```
+├── index.js          # Entry point, imports and exports all functions and descriptions
+├── config-manager.js # Connection management functions (CRUD)
+├── controller-ssh.js # SSH control functions (test, exec, upload, download)
+└── normal.js         # Utility functions (encryption, config I/O, SSH/SFTP low-level impl, etc.)
+```
+
 ## Tool List
 
-| Function | Description |
-|----------|-------------|
-| `sshRemoteControl` | Main SSH remote control function. Operation types are selected by the `action` parameter. |
+### Connection Management Functions
 
-### Supported Actions
+| Function | Description | Parameters |
+|----------|-------------|------------|
+| `addConnection` | Add an SSH connection interactively and save to config | None |
+| `setCurrentInteractive` | Set the current active SSH connection interactively | None |
+| `listConnections` | List all saved connections | None |
+| `deleteConnection` | Delete a specified connection | `name`: connection alias |
+| `switchConnection` | Switch to a specified connection | `name`: connection alias |
+| `getConfigPath` | Get the local configuration file path | None |
 
-| action | Description |
-|--------|-------------|
-| `init` | Initialize or read the current SSH connection |
-| `test_connection` | Test whether the current SSH connection is available |
-| `list_connections` | List all saved connections |
-| `get_config_path` | Get the local configuration file path |
-| `add_connection` | Add an SSH connection interactively |
-| `set_current_interactive` | Set the current connection interactively |
-| `switch_connection` | Switch to a specified connection |
-| `delete_connection` | Delete a specified connection |
-| `exec_command` | Execute a command on the remote server |
-| `upload_path` | Upload a file or directory to the remote server |
-| `download_path` | Download a file or directory from the remote server |
+### SSH Control Functions
+
+| Function | Description | Parameters |
+|----------|-------------|------------|
+| `testCurrentConnection` | Test whether the current SSH connection is available | None |
+| `execCommand` | Execute a command on the remote server | `command`: command (required), `cwd`: working directory (optional), `timeout`: timeout in ms (optional) |
+| `uploadFile` | Upload file or directory to remote server via SFTP | `localPath`: local path, `remotePath`: remote path |
+| `downloadFile` | Download file or directory from remote server via SFTP | `remotePath`: remote path, `localPath`: local path |
 
 ## Quick Start
 
