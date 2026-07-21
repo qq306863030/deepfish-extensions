@@ -104,8 +104,8 @@ function validateConnection(conn, list, originalName) {
 
   const duplicatedName = list.some((item) => item.name === normalized.name && item.name !== originalName);
   if (duplicatedName) throw new Error('连接别名 name 不可重复');
-  const duplicatedHost = list.some((item) => item.host === normalized.host && item.name !== originalName);
-  if (duplicatedHost) throw new Error('主机地址 host 不可重复');
+  const duplicatedHost = list.some((item) => item.host === normalized.host && item.port === normalized.port && item.name !== originalName);
+  if (duplicatedHost) throw new Error('主机地址和端口组合已存在');
   return normalized;
 }
 
@@ -200,104 +200,118 @@ async function askConnection(list) {
     const value = String(input || '').trim();
     return value ? true : `${label} 不能为空`;
   };
-  const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'name',
-      message: '请输入连接别名 name：',
-      validate: (input) => {
-        const value = String(input || '').trim();
-        if (!value) return '连接别名 name 不能为空';
-        if (list.some((item) => item.name === value)) return '连接别名已存在，请更换';
-        return true;
-      },
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'input',
-      name: 'host',
-      message: '请输入主机地址 host：',
-      validate: (input) => {
-        const value = String(input || '').trim();
-        if (!value) return '主机地址 host 不能为空';
-        if (list.some((item) => item.host === value)) return '主机地址已存在，请更换';
-        return true;
-      },
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'input',
-      name: 'port',
-      message: '请输入 SSH 端口 port：',
-      default: 22,
-      validate: (input) => {
-        const value = Number(input);
-        if (!Number.isInteger(value) || value < 1 || value > 65535) {
-          return 'SSH 端口必须是 1-65535 之间的整数';
-        }
-        return true;
-      },
-      filter: (input) => Number(input),
-    },
-    {
-      type: 'input',
-      name: 'username',
-      message: '请输入登录账号 username：',
-      validate: requiredText('登录账号 username'),
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'list',
-      name: 'authType',
-      message: '请选择认证方式：',
-      default: 'password',
-      choices: [
-        { name: '密码 password', value: 'password' },
-        { name: '私钥 privateKey', value: 'privateKey' },
-      ],
-    },
-    {
-      type: 'password',
-      name: 'password',
-      message: '请输入登录密码：',
-      mask: '*',
-      when: (ans) => ans.authType === 'password',
-      validate: (input) => (input ? true : '登录密码不能为空'),
-    },
-    {
-      type: 'input',
-      name: 'privateKey',
-      message: '请输入本地私钥文件完整路径：',
-      when: (ans) => ans.authType === 'privateKey',
-      validate: (input) => {
-        const value = stripQuotes(input);
-        if (!value) return '私钥路径不能为空';
-        if (!fs.existsSync(value)) return '私钥文件不存在，请检查路径';
-        return true;
-      },
-      filter: (input) => stripQuotes(input),
-    },
-    {
-      type: 'password',
-      name: 'passphrase',
-      message: '如私钥有口令请输入，若没有直接回车：',
-      mask: '*',
-      when: (ans) => ans.authType === 'privateKey',
-    },
-  ]);
 
-  return validateConnection(
-    {
-      name: answers.name,
-      host: answers.host,
-      port: answers.port,
-      username: answers.username,
-      password: answers.password || '',
-      privateKey: answers.privateKey || '',
-      passphrase: answers.passphrase || '',
-    },
-    list
-  );
+  // 重试循环：任何校验失败（包括 validateConnection 抛出的错误）都会显示错误并重新开始
+  while (true) {
+    try {
+      const answers = await inquirer.prompt([
+        {
+          type: 'input',
+          name: 'name',
+          message: '请输入连接别名 name：',
+          validate: (input) => {
+            const value = String(input || '').trim();
+            if (!value) return '连接别名 name 不能为空';
+            if (list.some((item) => item.name === value)) return '连接别名已存在，请更换';
+            return true;
+          },
+          filter: (input) => String(input || '').trim(),
+        },
+        {
+          type: 'input',
+          name: 'host',
+          message: '请输入主机地址 host：',
+          validate: (input) => {
+            const value = String(input || '').trim();
+            if (!value) return '主机地址 host 不能为空';
+            return true;
+          },
+          filter: (input) => String(input || '').trim(),
+        },
+        {
+          type: 'input',
+          name: 'port',
+          message: '请输入 SSH 端口 port：',
+          default: 22,
+          validate: (input, answers) => {
+            const value = Number(input);
+            if (!Number.isInteger(value) || value < 1 || value > 65535) {
+              return 'SSH 端口必须是 1-65535 之间的整数';
+            }
+            // 校验 host+port 组合是否已存在
+            if (list.some((item) => item.host === answers.host && item.port === value)) {
+              return '该主机地址和端口组合已存在，请更换';
+            }
+            return true;
+          },
+          filter: (input) => Number(input),
+        },
+        {
+          type: 'input',
+          name: 'username',
+          message: '请输入登录账号 username：',
+          validate: requiredText('登录账号 username'),
+          filter: (input) => String(input || '').trim(),
+        },
+        {
+          type: 'list',
+          name: 'authType',
+          message: '请选择认证方式：',
+          default: 'password',
+          choices: [
+            { name: '密码 password', value: 'password' },
+            { name: '私钥 privateKey', value: 'privateKey' },
+          ],
+        },
+        {
+          type: 'password',
+          name: 'password',
+          message: '请输入登录密码：',
+          mask: '*',
+          when: (ans) => ans.authType === 'password',
+          validate: (input) => (input ? true : '登录密码不能为空'),
+        },
+        {
+          type: 'input',
+          name: 'privateKey',
+          message: '请输入本地私钥文件完整路径：',
+          when: (ans) => ans.authType === 'privateKey',
+          validate: (input) => {
+            const value = stripQuotes(input);
+            if (!value) return '私钥路径不能为空';
+            if (!fs.existsSync(value)) return '私钥文件不存在，请检查路径';
+            return true;
+          },
+          filter: (input) => stripQuotes(input),
+        },
+        {
+          type: 'password',
+          name: 'passphrase',
+          message: '如私钥有口令请输入，若没有直接回车：',
+          mask: '*',
+          when: (ans) => ans.authType === 'privateKey',
+        },
+      ]);
+
+      // inquirer 逐个字段校验已通过，再做整体校验
+      return validateConnection(
+        {
+          name: answers.name,
+          host: answers.host,
+          port: answers.port,
+          username: answers.username,
+          password: answers.password || '',
+          privateKey: answers.privateKey || '',
+          passphrase: answers.passphrase || '',
+        },
+        list
+      );
+    } catch (err) {
+      // 显示红色错误消息并重新循环
+      process.stdout.write(`\n\x1b[31m错误：${err.message}\x1b[0m\n请重新输入。\n\n`);
+      // while 循环继续，重新开始提问
+    }
+  }
 }
 
 async function addConnectionInteractively() {
@@ -673,8 +687,14 @@ async function sshRemoteControl(action, options = {}) {
   }
 }
 
+async function getConfigPath() {
+  ensureConfigFile();
+  return { success: true, data: { configPath: CONFIG_FILE } };
+}
+
 const functions = {
   sshRemoteControl,
+  getConfigPath,
 };
 
 const descriptions = [
@@ -736,6 +756,17 @@ const descriptions = [
           },
         },
         required: ['action', 'options'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getConfigPath',
+      description: '返回本地 SSH 配置文件的绝对路径。无需任何参数。',
+      parameters: {
+        type: 'object',
+        properties: {},
       },
     },
   },
