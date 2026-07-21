@@ -21,7 +21,7 @@ async function testCurrentConnection() {
   });
 }
 
-async function execCommand({ command, cwd, timeout } = {}) {
+async function execCommand(command, cwd, timeout) {
   return safeExecute(async () => {
     command = String(command || '').trim();
     if (!command) throw new Error('执行远程命令需要提供 command');
@@ -33,7 +33,7 @@ async function execCommand({ command, cwd, timeout } = {}) {
   });
 }
 
-async function uploadFile({ localPath, remotePath } = {}) {
+async function uploadFile(localPath, remotePath) {
   return safeExecute(async () => {
     localPath = stripQuotes(localPath);
     remotePath = stripQuotes(remotePath);
@@ -45,7 +45,7 @@ async function uploadFile({ localPath, remotePath } = {}) {
   });
 }
 
-async function downloadFile({ remotePath, localPath } = {}) {
+async function downloadFile(remotePath, localPath) {
   return safeExecute(async () => {
     remotePath = stripQuotes(remotePath);
     localPath = stripQuotes(localPath);

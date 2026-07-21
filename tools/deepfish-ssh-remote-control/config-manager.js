@@ -32,7 +32,7 @@ async function listConnections() {
   }
 }
 
-async function deleteConnection({ name } = {}) {
+async function deleteConnection(name) {
   try {
     name = String(name || '').trim();
     if (!name) throw new Error('删除连接需要提供 name');
@@ -48,7 +48,7 @@ async function deleteConnection({ name } = {}) {
   }
 }
 
-async function switchConnection({ name } = {}) {
+async function switchConnection(name) {
   try {
     name = String(name || '').trim();
     if (!name) throw new Error('切换连接需要提供 name');
