@@ -1,6 +1,6 @@
 {
   "name": "@deepfish-ai/deepfish-reminder",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Deepfish 网页提醒工具 — 仅在用户明确提出「网页提醒」「浏览器弹窗」请求时，在浏览器中打开全屏CSS渐变动画提示页。",
   "keywords": [
     "deepfish",
