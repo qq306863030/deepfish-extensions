@@ -74,7 +74,7 @@ const descriptions = [
         properties: {
           message: {
             type: 'string',
-            description: '要提示的文本内容，例如"下班该打卡了！"、"开会啦！"等',
+            description: '要提示的文本内容，例如"下班该打卡了！"、"开会啦！"等。注意提示内容要简洁明了。',
           },
         },
         required: ['message'],
