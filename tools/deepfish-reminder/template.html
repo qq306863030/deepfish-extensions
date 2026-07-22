@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>提示消息</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+    overflow: hidden;
+    background: linear-gradient(135deg, #667eea, #764ba2, #f093fb, #f5576c, #4facfe, #00f2fe, #43e97b, #38f9d7, #fa709a, #fee140, #a18cd1, #fbc2eb);
+    background-size: 600% 600%;
+    animation: gradientShift 20s ease-in-out infinite alternate;
+  }
+
+  @keyframes gradientShift {
+    0%   { background-position: 0% 0%; }
+    10%  { background-position: 20% 20%; }
+    20%  { background-position: 40% 60%; }
+    30%  { background-position: 60% 40%; }
+    40%  { background-position: 80% 80%; }
+    50%  { background-position: 100% 100%; }
+    60%  { background-position: 80% 20%; }
+    70%  { background-position: 40% 80%; }
+    80%  { background-position: 20% 40%; }
+    90%  { background-position: 60% 60%; }
+    100% { background-position: 0% 100%; }
+  }
+
+  h1 {
+    color: #fff;
+    font-size: 4rem;
+    text-align: center;
+    text-shadow:
+      0 0 10px rgba(255,255,255,0.8),
+      0 0 20px rgba(255,255,255,0.5),
+      0 0 40px rgba(255,255,255,0.3),
+      0 4px 15px rgba(0,0,0,0.3);
+    letter-spacing: 4px;
+    padding: 40px 60px;
+    background: rgba(255,255,255,0.12);
+    border-radius: 24px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.25);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    animation: float 3s ease-in-out infinite, glow 2s ease-in-out infinite alternate;
+    user-select: none;
+  }
+
+  @keyframes float {
+    0%   { transform: translateY(0px); }
+    50%  { transform: translateY(-15px); }
+    100% { transform: translateY(0px); }
+  }
+
+  @keyframes glow {
+    0%   { box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 20px rgba(255,255,255,0.1); }
+    100% { box-shadow: 0 20px 60px rgba(0,0,0,0.15), 0 0 40px rgba(255,255,255,0.3); }
+  }
+</style>
+</head>
+<body>
+  <h1>{{message}}</h1>
+</body>
+</html>

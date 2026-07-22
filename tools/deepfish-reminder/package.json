@@ -1,0 +1,35 @@
+{
+  "name": "@deepfish-ai/deepfish-reminder",
+  "version": "1.0.0",
+  "description": "Deepfish 网页提醒工具 — 仅在用户明确提出「网页提醒」「浏览器弹窗」请求时，在浏览器中打开全屏CSS渐变动画提示页。",
+  "keywords": [
+    "deepfish",
+    "deepfish-ai",
+    "reminder",
+    "notification",
+    "notify",
+    "prompt",
+    "alert",
+    "browser-notification",
+    "gradient-animation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git",
+    "directory": "tools/deepfish-reminder"
+  },
+  "homepage": "https://github.com/qq306863030/deepfish-extensions/tree/master/tools/deepfish-reminder#readme",
+  "bugs": {
+    "url": "https://github.com/qq306863030/deepfish-extensions/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.js",
+    "template.html",
+    "README.md"
+  ],
+  "main": "index.js",
+  "type": "commonjs"
+}
