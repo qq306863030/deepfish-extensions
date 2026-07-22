@@ -1,0 +1,42 @@
+{
+  "name": "@deepfish-ai/ssh-remote-control-skill",
+  "version": "1.1.0",
+  "description": "SSH remote control CLI tool — connection management, remote command execution, file upload/download via SSH/SFTP.",
+  "keywords": [
+    "deepfish",
+    "deepfish-ai",
+    "ssh",
+    "ssh2",
+    "sftp",
+    "remote-control",
+    "remote-server",
+    "server-management",
+    "automation",
+    "devops",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git",
+    "directory": "skills/ssh-remote-control-skill"
+  },
+  "homepage": "https://github.com/qq306863030/deepfish-extensions/tree/master/skills/ssh-remote-control-skill",
+  "bugs": {
+    "url": "https://github.com/qq306863030/deepfish-extensions/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "index.js",
+    "SKILL.md"
+  ],
+  "type": "commonjs",
+  "dependencies": {
+    "crypto-js": "^4.2.0",
+    "fs-extra": "^11.3.6",
+    "inquirer": "^8.2.7",
+    "ssh2": "^1.17.0",
+    "ssh2-sftp-client": "^12.1.1"
+  }
+}
