@@ -34,7 +34,7 @@ const functions = {
       template = template.replace(/\{\{message\}\}/g, escapedMessage);
 
       // 在当前工作目录生成 temp.html（覆盖已存在的文件）
-      const outputPath = path.join(process.cwd(), 'temp.html');
+      const outputPath = path.join(__dirname, 'temp.html');
       fs.writeFileSync(outputPath, template, 'utf-8');
 
       // 使用系统默认浏览器打开 temp.html
