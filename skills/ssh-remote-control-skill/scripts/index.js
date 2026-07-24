@@ -2,25 +2,24 @@
 // ========== 先加载内置模块，用于自动检查依赖 ==========
 const os = require('os');
 const path = require('path');
-const readline = require('readline');
 const { execSync } = require('child_process');
 
 // 自动检查依赖：没有 node_modules 就自动 install（必须在 npm require 之前执行）
 const SCRIPT_DIR = path.resolve(__dirname);
-const nmPath = path.join(SCRIPT_DIR, '..', 'node_modules');
+const nmPath = path.join(SCRIPT_DIR, 'node_modules');
 if (!require('fs').existsSync(nmPath)) {
   process.stdout.write('⚠️  检测到依赖未安装，正在自动执行 npm install...\n');
-  execSync('npm install', { cwd: path.resolve(SCRIPT_DIR, '..'), stdio: 'inherit' });
+  execSync('npm install', { cwd: SCRIPT_DIR, stdio: 'inherit' });
   process.stdout.write('✅ 依赖安装完成\n');
 }
 
 // ========== 现在安全加载 npm 依赖 ==========
 const fs = require('fs-extra');
-const inquirer = require('inquirer');
 const { Client } = require('ssh2');
 const SftpClient = require('ssh2-sftp-client');
 const SALT = 'ROMAN-123';
 const CryptoJS = require('crypto-js');
+const { startServer } = require('./server');
 
 function encrypt(text) {
   if (!text) return '';
@@ -205,159 +204,13 @@ function testConnection(conn) {
   });
 }
 
-function ask(rl, question) {
-  return new Promise((resolve) => rl.question(question, (answer) => resolve(answer)));
-}
 
-async function askConnection(list) {
-  const requiredText = (label) => (input) => {
-    const value = String(input || '').trim();
-    return value ? true : `${label} 不能为空`;
-  };
-  const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'name',
-      message: '请输入连接别名 name：',
-      validate: (input) => {
-        const value = String(input || '').trim();
-        if (!value) return '连接别名 name 不能为空';
-        if (list.some((item) => item.name === value)) return '连接别名已存在，请更换';
-        return true;
-      },
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'input',
-      name: 'host',
-      message: '请输入主机地址 host：',
-      validate: (input) => {
-        const value = String(input || '').trim();
-        if (!value) return '主机地址 host 不能为空';
-        if (list.some((item) => item.host === value)) return '主机地址已存在，请更换';
-        return true;
-      },
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'input',
-      name: 'port',
-      message: '请输入 SSH 端口 port：',
-      default: 22,
-      validate: (input) => {
-        const value = Number(input);
-        if (!Number.isInteger(value) || value < 1 || value > 65535) {
-          return 'SSH 端口必须是 1-65535 之间的整数';
-        }
-        return true;
-      },
-      filter: (input) => Number(input),
-    },
-    {
-      type: 'input',
-      name: 'username',
-      message: '请输入登录账号 username：',
-      validate: requiredText('登录账号 username'),
-      filter: (input) => String(input || '').trim(),
-    },
-    {
-      type: 'list',
-      name: 'authType',
-      message: '请选择认证方式：',
-      default: 'password',
-      choices: [
-        { name: '密码 password', value: 'password' },
-        { name: '私钥 privateKey', value: 'privateKey' },
-      ],
-    },
-    {
-      type: 'password',
-      name: 'password',
-      message: '请输入登录密码：',
-      mask: '*',
-      when: (ans) => ans.authType === 'password',
-      validate: (input) => (input ? true : '登录密码不能为空'),
-    },
-    {
-      type: 'input',
-      name: 'privateKey',
-      message: '请输入本地私钥文件完整路径：',
-      when: (ans) => ans.authType === 'privateKey',
-      validate: (input) => {
-        const value = stripQuotes(input);
-        if (!value) return '私钥路径不能为空';
-        if (!fs.existsSync(value)) return '私钥文件不存在，请检查路径';
-        return true;
-      },
-      filter: (input) => stripQuotes(input),
-    },
-    {
-      type: 'password',
-      name: 'passphrase',
-      message: '如私钥有口令请输入，若没有直接回车：',
-      mask: '*',
-      when: (ans) => ans.authType === 'privateKey',
-    },
-  ]);
-
-  return validateConnection(
-    {
-      name: answers.name,
-      host: answers.host,
-      port: answers.port,
-      username: answers.username,
-      password: answers.password || '',
-      privateKey: answers.privateKey || '',
-      passphrase: answers.passphrase || '',
-    },
-    list
-  );
-}
-
-async function addConnectionInteractively() {
-  const config = readConfig();
-  const conn = await askConnection(config.list);
-  config.list.push(conn);
-  config.curSSH = conn.name;
-  writeConfig(config);
-  return safeConnection(conn);
-}
-
-async function setCurrentInteractively() {
-  const config = readConfig();
-  if (!config.list.length) throw new Error('连接列表为空，请先新增远程连接配置');
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    while (true) {
-      const name = await ask(rl, '请输入要设为当前连接的 name：');
-      const trimmed = String(name).trim();
-      if (!trimmed) {
-        process.stdout.write('输入不能为空，请重新输入。\n');
-        continue;
-      }
-      const target = config.list.find((item) => item.name === trimmed);
-      if (!target) {
-        process.stdout.write(`错误：连接 "${trimmed}" 不存在，请重新输入。\n`);
-        continue;
-      }
-      config.curSSH = target.name;
-      writeConfig(config);
-      return safeConnection(target);
-    }
-  } finally {
-    rl.close();
-  }
-}
 
 async function ensureInitialized() {
   const config = readConfig();
   const validCurrent = config.curSSH && config.list.some((item) => item.name === config.curSSH);
   if (config.list.length && validCurrent) return config;
-  const conn = await askConnection(config.list);
-  config.list.push(conn);
-  config.curSSH = conn.name;
-  writeConfig(config);
-  return config;
+  throw new Error('未配置 SSH 连接或未设置当前默认连接。请运行 "node scripts/index.js add_connection" 启动 Web 管理界面 (http://localhost:11889) 进行配置。');
 }
 
 async function runCommand(conn, command, cwd, timeoutMs) {
@@ -630,9 +483,9 @@ async function main() {
   // 3. 分发执行
   try {
     // ---- 不需要当前连接的操作 ----
-    if (action === 'add_connection') {
-      const added = await addConnectionInteractively();
-      console.log(JSON.stringify({ success: true, data: { added, message: '连接已添加成功并保存到配置文件。' } }, null, 2));
+    if (action === 'add_connection' || action === 'open_manager') {
+      const port = params.port ? Number(params.port) : 11889;
+      await startServer(module.exports, port, true);
       return;
     }
 
@@ -739,4 +592,18 @@ async function main() {
   }
 }
 
-main();
+module.exports = {
+  readConfig,
+  writeConfig,
+  validateConnection,
+  testConnection,
+  describeSshError,
+  CONFIG_FILE,
+  safeConnection,
+  decrypt,
+  encrypt,
+};
+
+if (require.main === module) {
+  main();
+}

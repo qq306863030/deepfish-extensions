@@ -34,8 +34,8 @@
   "type": "commonjs",
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "express": "^4.19.2",
     "fs-extra": "^11.3.6",
-    "inquirer": "^8.2.7",
     "ssh2": "^1.17.0",
     "ssh2-sftp-client": "^12.1.1"
   }

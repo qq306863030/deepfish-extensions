@@ -17,7 +17,7 @@ description: >-
 
 ## 核心原则
 
-1. **添加远程连接必须通过 CLI 完成** — 禁止告诉用户"请手动执行 XX 命令"，必须通过 `node <skill所在目录>/scripts/index.js add_connection` 自动弹出交互式表单
+1. **添加及管理远程连接通过 Web 界面完成** — 必须通过 `node <skill所在目录>/scripts/index.js add_connection` (或 `open_manager`) 自动启动 Express 管理服务 (默认端口 `11889`) 并弹出 SSH 管理 Web 页面 (http://localhost:11889)。管理页面支持对连接数据进行增删改查以及设置 `CurrentConnection`。
 2. **敏感信息不泄露** — 密码/私钥内容不出现在终端输出中，仅显示连接名和主机地址
 3. **命令执行可设置超时** — 通过 `--timeout` 参数控制，默认不超时
 
@@ -46,11 +46,11 @@ node <skill所在目录>/scripts/index.js list_connections
 
 | 命令 | 说明 |
 |------|------|
-| `node <skill所在目录>/scripts/index.js add_connection` | 交互式添加 SSH 连接（弹表单填写） |
+| `node <skill所在目录>/scripts/index.js add_connection` | 启动 Express 服务 (默认端口 11889) 并自动弹出 SSH Web 管理页面 |
+| `node <skill所在目录>/scripts/index.js open_manager` | 启动 Web 管理服务并弹出管理页面 |
 | `node <skill所在目录>/scripts/index.js list_connections` | 列出所有保存的连接 |
 | `node <skill所在目录>/scripts/index.js switch_connection --name <别名>` | 切换到指定连接 |
 | `node <skill所在目录>/scripts/index.js delete_connection --name <别名>` | 删除指定连接 |
-| `node <skill所在目录>/scripts/index.js set_current_interactive` | 交互式切换当前连接 |
 | `node <skill所在目录>/scripts/index.js get_config_path` | 查看配置文件路径 |
 
 ### 远程操作（需先设置当前连接）
@@ -64,25 +64,22 @@ node <skill所在目录>/scripts/index.js list_connections
 
 ## 工作流程
 
-### 1. 首次使用 — 添加连接
+### 1. 首次使用 — 添加与管理连接
 
-当用户没有配置过 SSH 连接时，**必须** 通过 CLI 添加：
+当用户需要添加或管理 SSH 连接时，Agent **必须** 直接执行以下命令：
 
 ```bash
-# 脚本会自动检测 node_modules → 没有就自动 install → 弹出交互式表单
+# 自动启动 Express 管理服务（默认端口 11889，若服务已启动则直接复用）并自动打开 SSH 管理网页
 node <skill所在目录>/scripts/index.js add_connection
 ```
 
-表单会依次提示输入：
-1. 连接别名（name）
-2. 主机地址（host）
-3. SSH 端口（port，默认 22）
-4. 登录账号（username）
-5. 认证方式：密码 / 私钥
-6. 密码 或 私钥路径（+ 可选 passphrase）
+执行该命令后会：
+1. 检查 Express 服务是否已启动（默认端口 `11889`），未启动时自动启动 Express 服务。
+2. 自动打开系统默认浏览器并跳转至 SSH Web 管理页面 (`http://localhost:11889`)。
+3. 用户可在弹出的 Web 管理页面中完成 SSH 连接数据的增删改查以及设置当前活动连接 `CurrentConnection`。
 
 > ⚠️ **严禁** 告诉用户"请手动执行 XXXX" 或让用户自己处理安装依赖。
-> Agent 必须直接执行命令完成所有操作，用户只需要提供连接信息。
+> Agent 必须直接执行命令完成启动服务与自动打开 Web 页面的操作。
 
 ### 2. 日常操作
 

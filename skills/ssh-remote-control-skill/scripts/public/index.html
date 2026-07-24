@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSH 远程连接管理中心</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 头部 Navigation / Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+            <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+            <line x1="6" y1="6" x2="6.01" y2="6"></line>
+            <line x1="6" y1="18" x2="6.01" y2="18"></line>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>SSH 远程连接管理中心</h1>
+          <span class="subtitle">SSH Remote Control Management Console</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="server-badge">
+          <span class="pulse-dot"></span>
+          <span>服务端口: <strong id="serverPort">11889</strong></span>
+        </div>
+        <button id="btnNewConn" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          新增 SSH 连接
+        </button>
+      </div>
+    </header>
+
+    <!-- 主体区域 Dashboard -->
+    <main class="app-main">
+      <!-- 当前连接概览卡片 -->
+      <section class="current-status-card">
+        <div class="status-header">
+          <span class="status-label">当前默认连接 (CurrentConnection)</span>
+          <span id="currentStatusBadge" class="status-badge inactive">未设置</span>
+        </div>
+        <div class="status-body" id="currentConnDetails">
+          <div class="empty-current">暂未配置或未选择当前 SSH 连接</div>
+        </div>
+      </section>
+
+      <!-- 连接列表 Section -->
+      <section class="connections-section">
+        <div class="section-header">
+          <h2>所有连接配置 (<span id="connCount">0</span>)</h2>
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="searchInput" placeholder="搜索别名、主机地址或用户名...">
+          </div>
+        </div>
+
+        <div id="connGrid" class="conn-grid">
+          <!-- 动态加载卡片 -->
+        </div>
+      </section>
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="app-footer">
+      <p>配置文件路径: <code id="configPathDisplay">加载中...</code></p>
+    </footer>
+  </div>
+
+  <!-- 新增/编辑 Modal -->
+  <div id="connModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">新增 SSH 连接</h3>
+        <button id="modalCloseBtn" class="btn-close">&times;</button>
+      </div>
+      <form id="connForm" class="modal-form">
+        <input type="hidden" id="originalName" value="">
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="inputName">连接别名 (Name) <span class="required">*</span></label>
+            <input type="text" id="inputName" required placeholder="如: prod-server, my-vps">
+            <span class="form-tip">全局唯一标识，用于命令行引用</span>
+          </div>
+
+          <div class="form-group">
+            <label for="inputHost">主机地址 (Host) <span class="required">*</span></label>
+            <input type="text" id="inputHost" required placeholder="如: 192.168.1.100 或 example.com">
+          </div>
+
+          <div class="form-group">
+            <label for="inputPort">SSH 端口 (Port) <span class="required">*</span></label>
+            <input type="number" id="inputPort" required value="22" min="1" max="65535">
+          </div>
+
+          <div class="form-group">
+            <label for="inputUsername">登录账号 (Username) <span class="required">*</span></label>
+            <input type="text" id="inputUsername" required placeholder="如: root, ubuntu">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>认证方式 (Authentication Method) <span class="required">*</span></label>
+          <div class="auth-type-selector">
+            <label class="radio-card">
+              <input type="radio" name="authType" value="password" checked>
+              <div class="radio-content">
+                <span class="title">密码认证</span>
+                <span class="desc">使用账号密码登录</span>
+              </div>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="authType" value="privateKey">
+              <div class="radio-content">
+                <span class="title">私钥认证</span>
+                <span class="desc">使用 SSH 密钥对文件登录</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 密码区域 -->
+        <div id="passwordFields" class="auth-fields">
+          <div class="form-group">
+            <label for="inputPassword">登录密码 (Password) <span class="required">*</span></label>
+            <div class="password-input-wrap">
+              <input type="password" id="inputPassword" placeholder="输入远程服务器登录密码">
+              <button type="button" id="togglePasswordBtn" class="btn-icon-subtle" title="显示/隐藏密码">
+                👁️
+              </button>
+            </div>
+            <span class="form-tip">密码将采用 AES 加密安全保存在本地配置文件中</span>
+          </div>
+        </div>
+
+        <!-- 私钥区域 -->
+        <div id="privateKeyFields" class="auth-fields hidden">
+          <div class="form-group">
+            <label for="inputPrivateKey">本地私钥路径 (Private Key Path) <span class="required">*</span></label>
+            <input type="text" id="inputPrivateKey" placeholder="如: C:/Users/name/.ssh/id_rsa">
+            <span class="form-tip">本地私钥文件的绝对路径，不要填入 ~ 缩写</span>
+          </div>
+          <div class="form-group">
+            <label for="inputPassphrase">私钥口令 (Passphrase)</label>
+            <div class="password-input-wrap">
+              <input type="password" id="inputPassphrase" placeholder="如私钥已加密请输入口令，无口令留空">
+              <button type="button" id="togglePassphraseBtn" class="btn-icon-subtle" title="显示/隐藏口令">
+                👁️
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" id="btnTestDraft" class="btn btn-secondary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            </svg>
+            测试连通性
+          </button>
+          <div class="footer-right">
+            <button type="button" id="btnCancelModal" class="btn btn-tertiary">取消</button>
+            <button type="submit" id="btnSaveConn" class="btn btn-primary">保存配置</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast 提示框架 -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
