@@ -1,14 +1,16 @@
 {
   "name": "deepseek-vision-mcp",
   "version": "1.0.0",
-  "description": "MCP server：使用 OpenAI 兼容接口的视觉模型进行图像识别。零依赖单文件打包发布，配置参数（url/apiKey/model）通过 MCP 客户端环境变量注入。",
+  "description": "MCP server for visual image recognition using OpenAI-compatible vision models. Zero-dependency single-file build, configurable via MCP client environment variables (url/apiKey/model).",
   "type": "module",
   "main": "index.js",
   "bin": {
     "deepseek-vision-mcp": "dist/index.js"
   },
   "files": [
-    "dist/"
+    "dist/",
+    "README.md",
+    "README.en.md"
   ],
   "engines": {
     "node": ">=20"
@@ -26,6 +28,11 @@
     "vision",
     "image-recognizer"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git",
+    "directory": "mcp/deepseek-vision-mcp"
+  },
   "license": "MIT",
   "devDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
