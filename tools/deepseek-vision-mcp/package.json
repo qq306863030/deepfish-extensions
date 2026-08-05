@@ -1,0 +1,35 @@
+{
+  "name": "deepseek-vision-mcp",
+  "version": "1.0.0",
+  "description": "MCP server：使用 OpenAI 兼容接口的视觉模型进行图像识别。零依赖单文件打包发布，配置参数（url/apiKey/model）通过 MCP 客户端环境变量注入。",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "deepseek-vision-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "esbuild index.js --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --minify",
+    "prepublishOnly": "npm run build && node verify-zero-dep.mjs",
+    "test": "node test.mjs && node test-e2e.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "openai",
+    "deepseek",
+    "vision",
+    "image-recognizer"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.2.0",
+    "esbuild": "^0.28.1"
+  }
+}
