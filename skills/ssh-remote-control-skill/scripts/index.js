@@ -73,7 +73,7 @@ function writeConfig(config) {
 }
 
 function safeConnection(conn) {
-  return { name: conn.name || '', host: conn.host || '' };
+  return { name: conn.name || '', host: conn.host || '', content: conn.content || '' };
 }
 
 // 去掉路径首尾可能带的引号/空白（用户在终端粘贴路径时常见）
@@ -108,6 +108,7 @@ function validateConnection(conn, list, originalName) {
     _encrypted: true,
     privateKey: conn.privateKey ? stripQuotes(conn.privateKey) : '',
     passphrase: conn.passphrase ? String(conn.passphrase) : '',
+    content: conn.content ? String(conn.content) : '',
   };
 
   if (!normalized.name) throw new Error('连接别名 name 不能为空');
@@ -292,75 +293,271 @@ function formatBytes(bytes) {
   return `${size.toFixed(2)} ${units[i]}`;
 }
 
-function createFileProgress(label) {
+function formatTime(seconds) {
+  const sec = Math.ceil(seconds) || 0;
+  if (sec < 60) return `${sec}s`;
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m < 60) return `${m}m ${s}s`;
+  const h = Math.floor(m / 60);
+  const remM = m % 60;
+  return `${h}h ${remM}m`;
+}
+
+function createFileProgress(label, totalBytes, initialTransferred = 0) {
   const isTTY = Boolean(process.stdout.isTTY);
   let lastRender = 0;
   let finished = false;
   const startTs = Date.now();
+  const safeTotal = Number(totalBytes) || 0;
 
-  const render = (transferred, total, force = false) => {
+  const render = (transferred, force = false) => {
     if (finished) return;
     const now = Date.now();
     if (!force && now - lastRender < 100) return;
     lastRender = now;
-    const safeTotal = Number(total) || 0;
-    const ratio = safeTotal > 0 ? Math.min(transferred / safeTotal, 1) : 0;
+
+    const currentTransferred = Math.min(transferred, safeTotal || transferred);
+    const ratio = safeTotal > 0 ? Math.min(currentTransferred / safeTotal, 1) : 0;
     const percent = (ratio * 100).toFixed(1).padStart(5, ' ');
     const barLen = 24;
     const filled = Math.round(barLen * ratio);
     const bar = '█'.repeat(filled) + '░'.repeat(barLen - filled);
     const elapsed = (now - startTs) / 1000 || 0.001;
-    const speed = elapsed > 0 ? transferred / elapsed : 0;
-    const line = `${label} [${bar}] ${percent}%  ${formatBytes(transferred)}/${formatBytes(safeTotal)}  ${formatBytes(speed)}/s`;
+    const bytesTransferredThisSession = Math.max(0, currentTransferred - initialTransferred);
+    const speed = elapsed > 0 ? bytesTransferredThisSession / elapsed : 0;
+    const remainingBytes = Math.max(0, safeTotal - currentTransferred);
+    const etaSeconds = speed > 0 ? Math.ceil(remainingBytes / speed) : 0;
+    const etaStr = speed > 0 ? ` ETA: ${formatTime(etaSeconds)}` : '';
+
+    const line = `${label} [${bar}] ${percent}%  ${formatBytes(currentTransferred)}/${formatBytes(safeTotal)}  ${formatBytes(speed)}/s${etaStr}`;
     if (isTTY) {
-      process.stdout.write(`\r${line.padEnd(80, ' ')}`);
-    } else {
+      process.stdout.write(`\r${line.padEnd(90, ' ')}`);
+    } else if (force || now - lastRender >= 1000) {
       process.stdout.write(`${line}\n`);
     }
   };
 
+  // 渲染初始状态
+  render(initialTransferred, true);
+
   return {
-    step: (totalTransferred, _chunk, total) => {
-      render(totalTransferred, total);
+    step: (transferred) => {
+      render(transferred);
     },
-    done: (total) => {
-      render(total, total, true);
+    done: (finalTransferred = safeTotal) => {
+      render(finalTransferred, true);
       finished = true;
       process.stdout.write('\n');
     },
   };
 }
 
-async function uploadPath(conn, localPath, remotePath) {
+async function uploadSingleFile(sftp, localPath, remotePath, progressLabel, options = {}) {
+  const localStat = fs.statSync(localPath);
+  const totalSize = localStat.size;
+  let remoteSize = 0;
+  let isResume = false;
+
+  if (!options.overwrite) {
+    try {
+      const remoteStat = await sftp.stat(remotePath);
+      remoteSize = Number(remoteStat.size) || 0;
+    } catch (_) {
+      remoteSize = 0;
+    }
+
+    if (remoteSize > 0) {
+      if (remoteSize === totalSize) {
+        process.stdout.write(`${progressLabel} [已跳过] 远程文件已完整存在 (${formatBytes(totalSize)})\n`);
+        return { localPath, remotePath, size: totalSize, skipped: true, resumedBytes: totalSize };
+      } else if (remoteSize < totalSize) {
+        isResume = true;
+        process.stdout.write(`${progressLabel} [断点续传] 发现已上传 ${formatBytes(remoteSize)} / ${formatBytes(totalSize)}，从 ${formatBytes(remoteSize)} 继续上传...\n`);
+      }
+    }
+  }
+
+  const startOffset = isResume ? remoteSize : 0;
+  const progress = createFileProgress(progressLabel, totalSize, startOffset);
+
+  return new Promise((resolve, reject) => {
+    const readStream = fs.createReadStream(localPath, { start: startOffset });
+    const writeStream = sftp.sftp.createWriteStream(remotePath, {
+      flags: isResume ? 'a' : 'w',
+      start: isResume ? startOffset : 0,
+    });
+
+    let transferred = startOffset;
+
+    readStream.on('data', (chunk) => {
+      transferred += chunk.length;
+      progress.step(transferred);
+    });
+
+    readStream.on('error', (err) => {
+      writeStream.destroy();
+      reject(err);
+    });
+
+    writeStream.on('error', (err) => {
+      readStream.destroy();
+      reject(err);
+    });
+
+    writeStream.on('close', () => {
+      progress.done(totalSize);
+      resolve({ localPath, remotePath, size: totalSize, resumedFrom: startOffset });
+    });
+
+    readStream.pipe(writeStream);
+  });
+}
+
+function walkLocalDir(dir, baseDir = dir) {
+  let files = [];
+  const items = fs.readdirSync(dir, { withFileTypes: true });
+  for (const item of items) {
+    const fullPath = path.join(dir, item.name);
+    const relPath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+    if (item.isDirectory()) {
+      files = files.concat(walkLocalDir(fullPath, baseDir));
+    } else if (item.isFile()) {
+      files.push({ fullPath, relPath, size: fs.statSync(fullPath).size });
+    }
+  }
+  return files;
+}
+
+async function uploadPath(conn, localPath, remotePath, options = {}) {
   const sftp = new SftpClient();
   try {
     await sftp.connect(buildSshConfig(conn));
     const stat = fs.statSync(localPath);
+
     if (stat.isDirectory()) {
-      let count = 0;
-      const onUpload = (info) => {
-        count += 1;
-        process.stdout.write(`[上传] (${count}) ${info.source} -> ${info.destination}\n`);
-      };
-      sftp.on('upload', onUpload);
-      try {
-        await sftp.uploadDir(localPath, remotePath);
-      } finally {
-        sftp.removeListener('upload', onUpload);
+      const files = walkLocalDir(localPath);
+      if (files.length === 0) {
+        process.stdout.write(`[上传] 本地目录为空: ${localPath}\n`);
+        return { localPath, remotePath, files: 0, size: 0 };
       }
-      process.stdout.write(`[上传完成] 共上传 ${count} 个文件\n`);
-      return { localPath, remotePath, files: count };
+
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      process.stdout.write(`[上传目录] 准备上传 ${files.length} 个文件，共 ${formatBytes(totalSize)}\n`);
+
+      let totalUploaded = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const targetRemoteFile = path.posix.join(remotePath.replace(/\\/g, '/'), file.relPath);
+        const targetRemoteDir = path.posix.dirname(targetRemoteFile);
+
+        await sftp.mkdir(targetRemoteDir, true).catch(() => undefined);
+
+        const label = `[上传 ${i + 1}/${files.length}] ${file.relPath}`;
+        const res = await uploadSingleFile(sftp, file.fullPath, targetRemoteFile, label, options);
+        if (res.skipped) skippedCount++;
+        totalUploaded += file.size;
+      }
+
+      process.stdout.write(`[上传完成] 共 ${files.length} 个文件 (${skippedCount} 个已跳过)\n`);
+      return { localPath, remotePath, files: files.length, skippedFiles: skippedCount, totalSize };
     }
-    const progress = createFileProgress(`[上传] ${path.basename(localPath)}`);
-    await sftp.fastPut(localPath, remotePath, { step: progress.step });
-    progress.done(stat.size);
-    return { localPath, remotePath, size: stat.size };
+
+    const label = `[上传] ${path.basename(localPath)}`;
+    return await uploadSingleFile(sftp, localPath, remotePath, label, options);
   } finally {
     await sftp.end().catch(() => undefined);
   }
 }
 
-async function downloadPath(conn, remotePath, localPath) {
+async function downloadSingleFile(sftp, remotePath, localPath, progressLabel, options = {}) {
+  const remoteStat = await sftp.stat(remotePath);
+  const totalSize = Number(remoteStat.size) || 0;
+  let localSize = 0;
+  let isResume = false;
+
+  if (!options.overwrite && fs.existsSync(localPath)) {
+    try {
+      const stat = fs.statSync(localPath);
+      localSize = stat.size;
+    } catch (_) {
+      localSize = 0;
+    }
+
+    if (localSize > 0) {
+      if (localSize === totalSize) {
+        process.stdout.write(`${progressLabel} [已跳过] 本地文件已完整存在 (${formatBytes(totalSize)})\n`);
+        return { remotePath, localPath, size: totalSize, skipped: true, resumedBytes: totalSize };
+      } else if (localSize < totalSize) {
+        isResume = true;
+        process.stdout.write(`${progressLabel} [断点续传] 发现已下载 ${formatBytes(localSize)} / ${formatBytes(totalSize)}，从 ${formatBytes(localSize)} 继续下载...\n`);
+      }
+    }
+  }
+
+  const startOffset = isResume ? localSize : 0;
+  fs.ensureDirSync(path.dirname(localPath));
+
+  const progress = createFileProgress(progressLabel, totalSize, startOffset);
+
+  return new Promise((resolve, reject) => {
+    const readStream = sftp.sftp.createReadStream(remotePath, { start: startOffset });
+    const writeStream = fs.createWriteStream(localPath, {
+      flags: isResume ? 'a' : 'w',
+      start: isResume ? startOffset : 0,
+    });
+
+    let transferred = startOffset;
+
+    readStream.on('data', (chunk) => {
+      transferred += chunk.length;
+      progress.step(transferred);
+    });
+
+    readStream.on('error', (err) => {
+      writeStream.destroy();
+      reject(err);
+    });
+
+    writeStream.on('error', (err) => {
+      writeStream.destroy();
+      reject(err);
+    });
+
+    writeStream.on('close', () => {
+      progress.done(totalSize);
+      resolve({ remotePath, localPath, size: totalSize, resumedFrom: startOffset });
+    });
+
+    // Node.js fs.createWriteStream close 触发逻辑
+    readStream.pipe(writeStream);
+  });
+}
+
+async function walkRemoteDir(sftpClient, rDir, baseDir = rDir) {
+  let files = [];
+  const items = await sftpClient.list(rDir);
+  const normalizedRDir = rDir.replace(/\\/g, '/');
+  const normalizedBaseDir = baseDir.replace(/\\/g, '/');
+
+  for (const item of items) {
+    const fullPath = path.posix.join(normalizedRDir, item.name);
+    let relPath = path.posix.relative(normalizedBaseDir, fullPath);
+    if (!relPath) relPath = item.name;
+
+    if (item.type === 'd') {
+      const subFiles = await walkRemoteDir(sftpClient, fullPath, baseDir);
+      files = files.concat(subFiles);
+    } else if (item.type === '-') {
+      files.push({ fullPath, relPath, size: item.size });
+    }
+  }
+  return files;
+}
+
+async function downloadPath(conn, remotePath, localPath, options = {}) {
   const sftp = new SftpClient();
   try {
     await sftp.connect(buildSshConfig(conn));
@@ -450,6 +647,7 @@ function printUsageAndExit() {
   console.error('    delete_connection --name   删除指定连接');
   console.error('    set_current_interactive    交互式切换当前连接');
   console.error('    get_config_path            查看配置文件路径');
+  console.error('    get_content [--name]       读取连接配置的 content 备注描述（默认当前连接）');
   console.error('');
   console.error('  远程操作（需要先设置当前连接）:');
   console.error('    test_connection            测试当前连接 SSH 认证');
@@ -458,12 +656,15 @@ function printUsageAndExit() {
   console.error('      [--timeout]                超时毫秒数（可选）');
   console.error('    upload_path --localPath     上传文件/目录到远程');
   console.error('      --remotePath               远程目标路径');
+  console.error('      [--overwrite]              强行全量覆盖，忽略断点续传（可选）');
   console.error('    download_path --remotePath  从远程下载文件/目录');
   console.error('      --localPath                本地目标路径');
+  console.error('      [--overwrite]              强行全量覆盖，忽略断点续传（可选）');
   console.error('');
   console.error('示例:');
   console.error('  node scripts/index.js add_connection');
   console.error('  node scripts/index.js list_connections');
+  console.error('  node scripts/index.js get_content --name my-server');
   console.error('  node scripts/index.js switch_connection --name my-server');
   console.error('  node scripts/index.js exec_command --command "ls -la" --cwd /root --timeout 600000');
   console.error('  node scripts/index.js upload_path --localPath C:/file.txt --remotePath /root/file.txt');
@@ -505,6 +706,28 @@ async function main() {
     if (action === 'get_config_path') {
       ensureConfigFile();
       const result = { success: true, data: { configPath: CONFIG_FILE } };
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (action === 'get_content') {
+      const config = readConfig();
+      let target = null;
+      const name = String(params.name || '').trim();
+      if (name) {
+        target = config.list.find((item) => item.name === name);
+        if (!target) throw new Error(`未找到别名为 "${name}" 的连接配置`);
+      } else {
+        target = getCurrentConnection(config);
+      }
+      const result = {
+        success: true,
+        data: {
+          name: target.name,
+          host: target.host,
+          content: target.content || '',
+        },
+      };
       console.log(JSON.stringify(result, null, 2));
       return;
     }
@@ -575,7 +798,7 @@ async function main() {
     }
 
     // 未知 action
-    throw new Error(`未知 action: "${action}"。可用值: add_connection, list_connections, switch_connection, delete_connection, set_current_interactive, get_config_path, test_connection, exec_command, upload_path, download_path`);
+    throw new Error(`未知 action: "${action}"。可用值: add_connection, list_connections, switch_connection, delete_connection, set_current_interactive, get_config_path, get_content, test_connection, exec_command, upload_path, download_path`);
 
   } catch (err) {
     // 拿到当前连接信息以便给出更精准的诊断
@@ -602,6 +825,10 @@ module.exports = {
   safeConnection,
   decrypt,
   encrypt,
+  uploadPath,
+  downloadPath,
+  createFileProgress,
+  formatBytes,
 };
 
 if (require.main === module) {

@@ -1,6 +1,6 @@
 {
   "name": "deepseek-vision-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for visual image recognition using OpenAI-compatible vision models. Zero-dependency single-file build, configurable via MCP client environment variables (url/apiKey/model).",
   "type": "module",
   "main": "index.js",
@@ -36,7 +36,10 @@
   "license": "MIT",
   "devDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "zod": "^4.2.0",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "zod": "^4.2.0"
+  },
+  "dependencies": {
+    "sharp": "^0.35.3"
   }
 }

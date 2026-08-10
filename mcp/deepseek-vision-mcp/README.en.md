@@ -16,12 +16,16 @@ An MCP (Model Context Protocol) Server built on the **[OpenAI-compatible API](ht
 
 ## Features
 
-- ✅ MCP tool `recognizeImage`: Pass a local image absolute path + prompt, returns model recognition result
+- ✅ MCP tool `recognizeImage`: Pass an image path (local absolute path or network URL) + prompt, returns model recognition result
 - ✅ Supports common image formats: jpg/png/webp/bmp/gif/tiff/svg
 - ✅ Configuration (`url` / `apiKey` / `model`) injected via **environment variables** from MCP client — no code changes needed
 - ✅ Supports CLI arguments and runtime `config` parameter override
 - ✅ Automatic retry on 429 (rate limit) / 5xx (server errors) / network exceptions: 2s interval, up to 5 retries
 - ✅ Compatible with both regular JSON and SSE streaming responses (handles `reasoning_content` from deep-thinking models)
+
+## Working with ai-models-manager
+
+Can be used together with the model proxy service provided by **[ai-models-manager](https://www.npmjs.com/package/ai-models-manager)**: it automatically converts base64 images carried in requests into network URLs that MCP can read, so this server can recognize images directly via URL — no need to manually prepare local files or base64 text.
 
 ## Quick Start
 
@@ -143,13 +147,13 @@ node index.js --base-url http://xxx.com/v1 --api-key sk-123 --model MiMo_mimo-v2
 
 | Tool | Description |
 |------|-------------|
-| `recognizeImage` | Pass a local image absolute path and prompt, uses OpenAI-compatible vision model to recognize the image and return results |
+| `recognizeImage` | Pass an image path (local absolute path or network URL) and prompt, uses OpenAI-compatible vision model to recognize the image and return results |
 
 ### recognizeImage Parameters
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `imagePath` | string | ✅ | Absolute path to a local image file, e.g. `C:/Users/xxx/Desktop/photo.png` |
+| `imagePath` | string | ✅ | Image path: local absolute path (e.g. `C:/Users/xxx/Desktop/photo.png`), network image URL (e.g. `http://localhost:11888/base64-files/xxx.png`), or network base64 file URL (e.g. `http://localhost:11888/base64-files/xxx.base64`) |
 | `prompt` | string | ✅ | Recognition prompt, e.g. "Describe this image" or "Extract all text from this image" |
 | `config` | object | ❌ | Temporarily override environment config: `{ url, apiKey, model }` |
 
@@ -161,6 +165,8 @@ Use natural language in any MCP client:
 What's in this image: C:/Users/xxx/Desktop/photo.png
 Extract all text from C:/pics/invoice.png
 Analyze the line chart trend in D:/workspace/chart.png
+Describe this network image: http://localhost:11888/base64-files/xxx.png
+Recognize the image in this network base64 file: http://localhost:11888/base64-files/xxx.base64
 ```
 
 The client will automatically call the `recognizeImage` tool and return the recognition result.

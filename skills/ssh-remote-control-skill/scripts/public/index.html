@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -165,6 +166,22 @@
           </div>
         </div>
 
+        <!-- 服务器备注说明区域 (Content) -->
+        <div class="form-group">
+          <div class="label-with-actions" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+            <label for="inputContent" style="margin-bottom: 0;">服务器信息 / 备注说明 (Content)</label>
+            <div class="tab-buttons" style="display: flex; gap: 0.3rem;">
+              <button type="button" id="btnContentEdit" class="btn btn-secondary btn-sm active" style="padding: 0.2rem 0.6rem;">✏️ 编辑</button>
+              <button type="button" id="btnContentPreview" class="btn btn-secondary btn-sm" style="padding: 0.2rem 0.6rem;">👁️ 预览 Markdown</button>
+            </div>
+          </div>
+          <div id="contentEditWrap">
+            <textarea id="inputContent" rows="5" placeholder="支持 Markdown 格式，可填写服务器用途、配置说明、环境变量、部署路径等..."></textarea>
+          </div>
+          <div id="contentPreviewWrap" class="markdown-body markdown-preview-box hidden" style="min-height: 120px; padding: 0.75rem; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-md); max-height: 200px; overflow-y: auto;"></div>
+          <span class="form-tip">支持 Markdown 语法，可点击右上角"预览 Markdown"按钮验证渲染效果</span>
+        </div>
+
         <div class="modal-footer">
           <button type="button" id="btnTestDraft" class="btn btn-secondary">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -178,6 +195,22 @@
           </div>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Content Markdown 预览 Modal -->
+  <div id="previewModal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 id="previewModalTitle">服务器备注说明</h3>
+        <button id="previewModalCloseBtn" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 1.5rem; max-height: 60vh; overflow-y: auto;">
+        <div id="previewModalBody" class="markdown-body"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" id="previewModalCloseFooterBtn" class="btn btn-secondary">关闭</button>
+      </div>
     </div>
   </div>
 

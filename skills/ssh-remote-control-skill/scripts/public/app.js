@@ -27,6 +27,59 @@ document.addEventListener('DOMContentLoaded', () => {
   const inputPassword = document.getElementById('inputPassword');
   const inputPrivateKey = document.getElementById('inputPrivateKey');
   const inputPassphrase = document.getElementById('inputPassphrase');
+  const inputContent = document.getElementById('inputContent');
+
+  // Content tab controls
+  const btnContentEdit = document.getElementById('btnContentEdit');
+  const btnContentPreview = document.getElementById('btnContentPreview');
+  const contentEditWrap = document.getElementById('contentEditWrap');
+  const contentPreviewWrap = document.getElementById('contentPreviewWrap');
+
+  // Preview Modal Elements
+  const previewModal = document.getElementById('previewModal');
+  const previewModalTitle = document.getElementById('previewModalTitle');
+  const previewModalBody = document.getElementById('previewModalBody');
+  const previewModalCloseBtn = document.getElementById('previewModalCloseBtn');
+  const previewModalCloseFooterBtn = document.getElementById('previewModalCloseFooterBtn');
+
+  function renderMarkdown(text) {
+    if (!text || !text.trim()) return '';
+    if (typeof window.marked !== 'undefined' && typeof window.marked.parse === 'function') {
+      try {
+        return window.marked.parse(text);
+      } catch (_) {}
+    }
+    return escapeHtml(text)
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/^\> (.*$)/gim, '<blockquote>$1</blockquote>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\n/g, '<br />');
+  }
+
+  function showContentEditTab() {
+    if (contentEditWrap) contentEditWrap.classList.remove('hidden');
+    if (contentPreviewWrap) contentPreviewWrap.classList.add('hidden');
+    if (btnContentEdit) btnContentEdit.classList.add('active');
+    if (btnContentPreview) btnContentPreview.classList.remove('active');
+  }
+
+  function showContentPreviewTab() {
+    if (contentEditWrap) contentEditWrap.classList.add('hidden');
+    if (contentPreviewWrap) {
+      contentPreviewWrap.classList.remove('hidden');
+      const val = inputContent ? inputContent.value : '';
+      contentPreviewWrap.innerHTML = val.trim() ? renderMarkdown(val) : '<p style="color: var(--text-dim); font-style: italic;">*(未输入任何内容)*</p>';
+    }
+    if (btnContentEdit) btnContentEdit.classList.remove('active');
+    if (btnContentPreview) btnContentPreview.classList.add('active');
+  }
+
+  if (btnContentEdit) btnContentEdit.addEventListener('click', showContentEditTab);
+  if (btnContentPreview) btnContentPreview.addEventListener('click', showContentPreviewTab);
 
   // Buttons
   const btnNewConn = document.getElementById('btnNewConn');
@@ -112,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (current) {
       currentStatusBadge.className = 'status-badge active';
       currentStatusBadge.textContent = '当前激活';
+      const contentHtml = current.content ? `<div class="current-content-box markdown-body">${renderMarkdown(current.content)}</div>` : '';
       currentConnDetails.innerHTML = `
         <div class="current-info-box">
           <div class="current-info-left">
@@ -120,10 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
               <div class="current-address">${escapeHtml(current.username)}@${escapeHtml(current.host)}:${current.port || 22}</div>
             </div>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="testConnection('${escapeHtml(current.name)}')">
-            ⚡ 测试连接
-          </button>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <button class="btn btn-secondary btn-sm" onclick="viewContent('${escapeHtml(current.name)}')">👁️ 预览备注</button>
+            <button class="btn btn-secondary btn-sm" onclick="testConnection('${escapeHtml(current.name)}')">⚡ 测试连接</button>
+          </div>
         </div>
+        ${contentHtml}
       `;
     } else {
       currentStatusBadge.className = 'status-badge inactive';
@@ -139,7 +195,8 @@ document.addEventListener('DOMContentLoaded', () => {
       return (
         (conn.name && conn.name.toLowerCase().includes(filter)) ||
         (conn.host && conn.host.toLowerCase().includes(filter)) ||
-        (conn.username && conn.username.toLowerCase().includes(filter))
+        (conn.username && conn.username.toLowerCase().includes(filter)) ||
+        (conn.content && conn.content.toLowerCase().includes(filter))
       );
     });
 
@@ -158,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((conn) => {
         const isCurrent = conn.name === state.curSSH;
         const authTypeLabel = conn.privateKey ? '🔑 私钥认证' : '🔒 密码认证';
+        const contentHtml = conn.content ? `<div class="conn-content-preview markdown-body">${renderMarkdown(conn.content)}</div>` : '';
 
         return `
           <div class="conn-card ${isCurrent ? 'is-current' : ''}">
@@ -173,6 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="meta-tag">${authTypeLabel}</span>
             </div>
 
+            ${contentHtml}
+
             <div class="card-actions">
               ${
                 !isCurrent
@@ -180,6 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
                   : `<button class="btn btn-tertiary btn-sm" disabled>当前默认</button>`
               }
               <div class="action-btns">
+                <button class="btn btn-secondary btn-sm" onclick="viewContent('${escapeHtml(conn.name)}')">👁️ 预览</button>
                 <button class="btn btn-secondary btn-sm" onclick="testConnection('${escapeHtml(conn.name)}')">测试</button>
                 <button class="btn btn-secondary btn-sm" onclick="editConnection('${escapeHtml(conn.name)}')">编辑</button>
                 <button class="btn btn-tertiary btn-sm" style="color: var(--accent-red);" onclick="deleteConnection('${escapeHtml(conn.name)}')">删除</button>
@@ -197,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Modal Open/Close
   function openModal(conn = null) {
     connForm.reset();
+    showContentEditTab();
     if (conn) {
       modalTitle.textContent = '编辑 SSH 连接';
       originalName.value = conn.name;
@@ -204,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
       inputHost.value = conn.host;
       inputPort.value = conn.port || 22;
       inputUsername.value = conn.username;
+      inputContent.value = conn.content != null ? conn.content : '';
 
       if (conn.privateKey) {
         document.querySelector('input[name="authType"][value="privateKey"]').checked = true;
@@ -224,6 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
       passwordFields.classList.remove('hidden');
       privateKeyFields.classList.add('hidden');
       inputPort.value = 22;
+      inputContent.value = '';
     }
     connModal.classList.remove('hidden');
   }
@@ -235,6 +299,23 @@ document.addEventListener('DOMContentLoaded', () => {
   btnNewConn.addEventListener('click', () => openModal());
   modalCloseBtn.addEventListener('click', closeModal);
   btnCancelModal.addEventListener('click', closeModal);
+
+  // Preview Modal Window Functions
+  window.viewContent = function (name) {
+    const conn = state.list.find((item) => item.name === name);
+    if (!conn) return;
+    previewModalTitle.textContent = `${conn.name} - 服务器备注说明`;
+    const val = conn.content || '';
+    previewModalBody.innerHTML = val.trim() ? renderMarkdown(val) : '<p style="color: var(--text-dim); font-style: italic;">*(暂无备注信息)*</p>';
+    if (previewModal) previewModal.classList.remove('hidden');
+  };
+
+  function closePreviewModal() {
+    if (previewModal) previewModal.classList.add('hidden');
+  }
+
+  if (previewModalCloseBtn) previewModalCloseBtn.addEventListener('click', closePreviewModal);
+  if (previewModalCloseFooterBtn) previewModalCloseFooterBtn.addEventListener('click', closePreviewModal);
 
   // Global Actions attached to window for inline onclick attributes
   window.setCurrent = async function (name) {
@@ -333,6 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
       password: authType === 'password' ? inputPassword.value : '',
       privateKey: authType === 'privateKey' ? inputPrivateKey.value.trim() : '',
       passphrase: authType === 'privateKey' ? inputPassphrase.value : '',
+      content: inputContent ? inputContent.value : '',
     };
   }
 

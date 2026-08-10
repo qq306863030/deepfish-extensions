@@ -52,6 +52,7 @@ node <skill所在目录>/scripts/index.js list_connections
 | `node <skill所在目录>/scripts/index.js switch_connection --name <别名>` | 切换到指定连接 |
 | `node <skill所在目录>/scripts/index.js delete_connection --name <别名>` | 删除指定连接 |
 | `node <skill所在目录>/scripts/index.js get_config_path` | 查看配置文件路径 |
+| `node <skill所在目录>/scripts/index.js get_content [--name <别名>]` | 读取指定或当前连接的 content 备注描述信息 |
 
 ### 远程操作（需先设置当前连接）
 
@@ -59,8 +60,8 @@ node <skill所在目录>/scripts/index.js list_connections
 |------|------|
 | `node <skill所在目录>/scripts/index.js test_connection` | 测试当前连接 SSH 认证是否可用 |
 | `node <skill所在目录>/scripts/index.js exec_command --command "<命令>" [--cwd <目录>] [--timeout <毫秒>]` | 远程执行命令 |
-| `node <skill所在目录>/scripts/index.js upload_path --localPath <本地路径> --remotePath <远程路径>` | 上传文件或目录 |
-| `node <skill所在目录>/scripts/index.js download_path --remotePath <远程路径> --localPath <本地路径>` | 下载文件或目录 |
+| `node <skill所在目录>/scripts/index.js upload_path --localPath <本地路径> --remotePath <远程路径> [--overwrite]` | 上传文件或目录 (支持实时进度与断点续传) |
+| `node <skill所在目录>/scripts/index.js download_path --remotePath <远程路径> --localPath <本地路径> [--overwrite]` | 下载文件或目录 (支持实时进度与断点续传) |
 
 ## 工作流程
 
@@ -76,12 +77,22 @@ node <skill所在目录>/scripts/index.js add_connection
 执行该命令后会：
 1. 检查 Express 服务是否已启动（默认端口 `11889`），未启动时自动启动 Express 服务。
 2. 自动打开系统默认浏览器并跳转至 SSH Web 管理页面 (`http://localhost:11889`)。
-3. 用户可在弹出的 Web 管理页面中完成 SSH 连接数据的增删改查以及设置当前活动连接 `CurrentConnection`。
+3. 用户可在弹出的 Web 管理页面中完成 SSH 连接数据的增删改查、编写与预览服务器 `content` (支持 Markdown 描述/部署指南)，以及设置当前活动连接 `CurrentConnection`。
 
 > ⚠️ **严禁** 告诉用户"请手动执行 XXXX" 或让用户自己处理安装依赖。
 > Agent 必须直接执行命令完成启动服务与自动打开 Web 页面的操作。
 
 ### 2. 日常操作
+
+#### 读取服务器信息 / 备注 (content)
+
+```bash
+# 读取当前激活连接的 content 备注
+node <skill所在目录>/scripts/index.js get_content
+
+# 读取指定别名连接的 content 备注
+node <skill所在目录>/scripts/index.js get_content --name prod-server
+```
 
 #### 执行远程命令
 
@@ -93,13 +104,13 @@ node <skill所在目录>/scripts/index.js exec_command --command "ls -la /root"
 node <skill所在目录>/scripts/index.js exec_command --command "npm run build" --cwd /var/www/project --timeout 60000
 ```
 
-#### 上传/下载文件
+#### 上传/下载文件 (实时进度 & 断点续传)
 
 ```bash
-# 上传文件
+# 上传文件/目录
 node <skill所在目录>/scripts/index.js upload_path --localPath "C:/projects/dist" --remotePath "/var/www/html"
 
-# 下载文件
+# 下载文件/目录
 node <skill所在目录>/scripts/index.js download_path --remotePath "/var/log/nginx/access.log" --localPath "D:/logs/"
 ```
 
@@ -122,6 +133,7 @@ node <skill所在目录>/scripts/index.js exec_command --command "systemctl stat
 - 密码使用 AES 加密存储（密钥：`ROMAN-123`）
 - 配置文件中不暴露明文密码
 - 私钥内容不存储在配置中，只存路径
+- 支持在 `content` 字段存放服务器功能说明、部署备注、环境变量指南等 Markdown 格式文本
 
 ## 错误处理
 

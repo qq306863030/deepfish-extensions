@@ -16,12 +16,16 @@
 
 ## 功能
 
-- ✅ MCP 工具 `recognizeImage`：传入本地图片绝对路径 + 提示词，返回模型识别结果
+- ✅ MCP 工具 `recognizeImage`：传入图片路径（本地绝对路径或网络 URL）+ 提示词，返回模型识别结果
 - ✅ 支持 jpg/png/webp/bmp/gif/tiff/svg 等常见图片格式
 - ✅ 配置参数（`url` / `apiKey` / `model`）由 **MCP 客户端通过环境变量注入**，无需改代码
 - ✅ 支持命令行参数与工具调用时 `config` 参数临时覆盖
 - ✅ 接口访问量过大（429）/服务端错误（5xx）/网络异常时自动重试：间隔 2 秒，最多 5 次
 - ✅ 同时兼容普通 JSON 与 SSE 流式响应（深度思考模型的 `reasoning_content` 也一并处理）
+
+## 配合 ai-models-manager 使用
+
+可配合 **[ai-models-manager](https://www.npmjs.com/package/ai-models-manager)** 提供的模型代理服务使用：它能将请求中携带的 base64 图片自动转换为 MCP 可读取的网络 URL，从而让本 server 直接通过 URL 识别图片，无需手动准备本地文件或 base64 文本。
 
 ## MCP 客户端配置
 
@@ -123,13 +127,13 @@ node index.js --base-url http://xxx.com/v1 --api-key sk-123 --model MiMo_mimo-v2
 
 | 工具名 | 描述 |
 |--------|------|
-| `recognizeImage` | 传入本地图片绝对路径和提示词，使用 OpenAI 兼容接口视觉模型识别图片并返回结果 |
+| `recognizeImage` | 传入图片路径（本地绝对路径或网络 URL）和提示词，使用 OpenAI 兼容接口视觉模型识别图片并返回结果 |
 
 ### recognizeImage 参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `imagePath` | string | ✅ | 本地图片文件的绝对路径，如 `C:/Users/xxx/Desktop/photo.png` |
+| `imagePath` | string | ✅ | 图片路径：本地绝对路径（如 `C:/Users/xxx/Desktop/photo.png`）、网络图片 URL（如 `http://localhost:11888/base64-files/xxx.png`）、或网络 base64 文件 URL（如 `http://localhost:11888/base64-files/xxx.base64`） |
 | `prompt` | string | ✅ | 识别提示词，如"描述这张图片的内容"、"提取图片中的所有文字" |
 | `config` | object | ❌ | 临时覆盖环境变量配置：`{ url, apiKey, model }` |
 
@@ -141,6 +145,8 @@ node index.js --base-url http://xxx.com/v1 --api-key sk-123 --model MiMo_mimo-v2
 帮我识别图片 C:/Users/xxx/Desktop/photo.png 里有什么
 提取图片 C:/pics/invoice.png 中的所有文字
 分析图片 D:/workspace/chart.png 中折线图的走势
+识别这张网络图片 http://localhost:11888/base64-files/xxx.png 的内容
+识别这个网络 base64 文件 http://localhost:11888/base64-files/xxx.base64 里的图片
 ```
 
 客户端会自动调用 `recognizeImage` 工具并返回识别结果。

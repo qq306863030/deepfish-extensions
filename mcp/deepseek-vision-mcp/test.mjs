@@ -9,13 +9,32 @@ import readline from 'node:readline';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
 
 // 生成一个 1x1 的红色 PNG 作为真实测试图片
 const TEST_IMAGE = path.join(os.tmpdir(), 'deepseek-vision-mcp-test-1x1.png');
-fs.writeFileSync(TEST_IMAGE, Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64'
-));
+const TEST_PNG_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+fs.writeFileSync(TEST_IMAGE, Buffer.from(TEST_PNG_BASE64, 'base64'));
+
+// 启动一个本地 HTTP 服务，用于测试网络路径（图片 URL 与 base64 文件 URL）
+const httpServer = http.createServer((req, res) => {
+  const url = req.url || '';
+  if (url === '/test.png') {
+    res.writeHead(200, { 'Content-Type': 'image/png' });
+    res.end(Buffer.from(TEST_PNG_BASE64, 'base64'));
+  } else if (url === '/test.base64') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end(TEST_PNG_BASE64);
+  } else {
+    res.writeHead(404);
+    res.end('not found');
+  }
+});
+await new Promise((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
+const HTTP_PORT = httpServer.address().port;
+const NET_IMAGE_URL = `http://127.0.0.1:${HTTP_PORT}/test.png`;
+const NET_BASE64_URL = `http://127.0.0.1:${HTTP_PORT}/test.base64`;
 
 const SERVER_CMD = process.execPath;
 const SERVER_ARGS = ['index.js'];
@@ -120,11 +139,28 @@ try {
   assert(callNoFile.isError === true, `图片不存在时返回 isError=true`);
   assert(JSON.stringify(callNoFile.content).includes('图片文件不存在'), `错误信息提示文件不存在，实际: ${JSON.stringify(callNoFile.content)}`);
 
+  // 6. tools/call - 网络图片 URL（配置缺失，但网络路径应能成功下载并走到配置校验）
+  const callNetImage = await request('tools/call', {
+    name: 'recognizeImage',
+    arguments: { imagePath: NET_IMAGE_URL, prompt: '描述这张图片' },
+  });
+  assert(callNetImage.isError === true, `网络图片 URL 未配置环境变量时返回 isError=true`);
+  assert(JSON.stringify(callNetImage.content).includes('DEEPSEEK_OPENAI_BASE_URL'), `网络图片 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetImage.content)}`);
+
+  // 7. tools/call - 网络 base64 文件 URL（配置缺失，但网络路径应能成功下载并走到配置校验）
+  const callNetBase64 = await request('tools/call', {
+    name: 'recognizeImage',
+    arguments: { imagePath: NET_BASE64_URL, prompt: '描述这张图片' },
+  });
+  assert(callNetBase64.isError === true, `网络 base64 文件 URL 未配置环境变量时返回 isError=true`);
+  assert(JSON.stringify(callNetBase64.content).includes('DEEPSEEK_OPENAI_BASE_URL'), `网络 base64 文件 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetBase64.content)}`);
+
   console.log('\n🎉 冒烟测试全部通过');
 } catch (err) {
   console.error('\n❌ 测试异常:', err.message);
   process.exitCode = 1;
 } finally {
   child.kill();
+  httpServer.close();
   process.exit(process.exitCode || 0);
 }

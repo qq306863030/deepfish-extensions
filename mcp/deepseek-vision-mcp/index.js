@@ -113,6 +113,204 @@ function getMimeType(filePath) {
   return map[ext] || 'image/jpeg';
 }
 
+function isDataUri(text) {
+  return typeof text === 'string' && /^data:[^;]+;base64,[A-Za-z0-9+/=]+$/i.test(text.trim());
+}
+
+function isLikelyRawBase64(text) {
+  if (typeof text !== 'string') return false;
+  const trimmed = text.trim().replace(/\s+/g, '');
+  if (trimmed.length < 64) return false;
+  return /^[A-Za-z0-9+/]+={0,2}$/.test(trimmed);
+}
+
+function detectMimeTypeFromBuffer(buffer) {
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (buffer.length >= 8 && buffer.slice(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) {
+    return 'image/png';
+  }
+  if (buffer.length >= 6 && buffer.slice(0, 6).toString('ascii') === 'GIF87a') {
+    return 'image/gif';
+  }
+  if (buffer.length >= 6 && buffer.slice(0, 6).toString('ascii') === 'GIF89a') {
+    return 'image/gif';
+  }
+  if (buffer.length >= 12 && buffer.slice(0, 4).toString('ascii') === 'RIFF' && buffer.slice(8, 12).toString('ascii') === 'WEBP') {
+    return 'image/webp';
+  }
+  if (buffer.length >= 2 && buffer[0] === 0x42 && buffer[1] === 0x4d) {
+    return 'image/bmp';
+  }
+  if (buffer.length >= 4 && (buffer.slice(0, 4).equals(Buffer.from([0x49, 0x49, 0x2a, 0x00])) || buffer.slice(0, 4).equals(Buffer.from([0x4d, 0x4d, 0x00, 0x2a])))) {
+    return 'image/tiff';
+  }
+  const text = buffer.slice(0, 64).toString('utf8');
+  if (/^\s*<\?xml/i.test(text) || /^\s*<svg/i.test(text)) {
+    return 'image/svg+xml';
+  }
+  return 'image/jpeg';
+}
+
+async function tryCompressImageBuffer(buffer) {
+  const FIVE_HUNDRED_KB = 500 * 1024;
+  if (buffer.length < FIVE_HUNDRED_KB) {
+    return buffer;
+  }
+
+  const moduleName = 'sharp';
+  try {
+    const sharpModule = await import(moduleName);
+    const sharp = sharpModule.default || sharpModule;
+    const compressed = await sharp(buffer)
+      .resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 78 })
+      .toBuffer();
+    return compressed;
+  } catch (e) {
+    // 如果未安装 sharp 或压缩失败，继续使用原始数据，不影响识别功能
+    return buffer;
+  }
+}
+
+function normalizeBase64(text) {
+  return text.trim().replace(/\s+/g, '');
+}
+
+function isHttpUrl(text) {
+  return typeof text === 'string' && /^https?:\/\/\S+$/i.test(text.trim());
+}
+
+/**
+ * 从网络 URL 下载内容（图片或 base64 文本）
+ * @param {string} url 网络地址
+ * @returns {Promise<{ ok: boolean, buffer?: Buffer, mime?: string, error?: string }>}
+ */
+async function fetchRemote(url) {
+  let resp;
+  try {
+    resp = await fetch(url, { method: 'GET' });
+  } catch (err) {
+    return { ok: false, error: `网络图片下载失败（网络异常）：${err.message}` };
+  }
+  if (!resp.ok) {
+    return { ok: false, error: `网络图片下载失败 (HTTP ${resp.status})：${url}` };
+  }
+  const arrayBuffer = await resp.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const contentType = (resp.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+  return { ok: true, buffer, mime: contentType || undefined };
+}
+
+async function resolveImageSource(imagePath) {
+  // 0. 网络路径：http(s):// 开头的图片或 base64 文本文件
+  if (isHttpUrl(imagePath)) {
+    const url = imagePath.trim();
+    const remote = await fetchRemote(url);
+    if (!remote.ok) {
+      return { error: remote.error };
+    }
+    const { buffer, mime } = remote;
+
+    // 根据 URL 路径或响应 Content-Type 判断是否为 base64 文本文件
+    const pathname = url.split(/[?#]/)[0].toLowerCase();
+    const isBase64File =
+      pathname.endsWith('.base64') ||
+      (mime && (mime.includes('text/plain') || mime.includes('application/octet-stream')));
+
+    if (isBase64File) {
+      const text = buffer.toString('utf8').trim();
+      if (!text) {
+        return { error: `Base64 文本文件为空：${url}` };
+      }
+      if (isDataUri(text)) {
+        const [, dataMime, base64Body] = text.match(/^data:([^;]+);base64,(.+)$/i) || [];
+        if (!base64Body) {
+          return { error: `无效的 base64 Data URI：${url}` };
+        }
+        const rawBase64 = normalizeBase64(base64Body);
+        const dataBuffer = Buffer.from(rawBase64, 'base64');
+        const compressed = await tryCompressImageBuffer(dataBuffer);
+        const finalMime = compressed === dataBuffer ? dataMime : 'image/jpeg';
+        return { mime: finalMime, base64: compressed.toString('base64') };
+      }
+      const rawBase64 = normalizeBase64(text);
+      if (!isLikelyRawBase64(rawBase64)) {
+        return { error: `无效的 base64 文本文件：${url}` };
+      }
+      const dataBuffer = Buffer.from(rawBase64, 'base64');
+      const compressed = await tryCompressImageBuffer(dataBuffer);
+      const dataMime = detectMimeTypeFromBuffer(dataBuffer);
+      return { mime: compressed === dataBuffer ? dataMime : 'image/jpeg', base64: compressed.toString('base64') };
+    }
+
+    // 普通图片：优先用响应 Content-Type，其次按 URL 扩展名推断
+    const compressed = await tryCompressImageBuffer(buffer);
+    const urlMime = getMimeType(pathname);
+    const finalMime = compressed === buffer ? mime || urlMime : 'image/jpeg';
+    return { mime: finalMime, base64: compressed.toString('base64') };
+  }
+
+  // 1. 先尝试当作本地文件路径处理（包括 .base64 文件）
+  if (typeof imagePath === 'string' && fs.existsSync(imagePath)) {
+    const ext = path.extname(imagePath).toLowerCase();
+    if (ext === '.base64') {
+      const text = fs.readFileSync(imagePath, 'utf8').trim();
+      if (!text) {
+        return { error: `Base64 文本文件为空：${imagePath}` };
+      }
+      if (isDataUri(text)) {
+        const [, mime, base64Body] = text.match(/^data:([^;]+);base64,(.+)$/i) || [];
+        if (!base64Body) {
+          return { error: `无效的 base64 Data URI：${imagePath}` };
+        }
+        const rawBase64 = normalizeBase64(base64Body);
+        const buffer = Buffer.from(rawBase64, 'base64');
+        const compressed = await tryCompressImageBuffer(buffer);
+        const finalMime = compressed === buffer ? mime : 'image/jpeg';
+        return { mime: finalMime, base64: compressed.toString('base64') };
+      }
+      const rawBase64 = normalizeBase64(text);
+      if (!isLikelyRawBase64(rawBase64)) {
+        return { error: `无效的 base64 文本文件：${imagePath}` };
+      }
+      const buffer = Buffer.from(rawBase64, 'base64');
+      const compressed = await tryCompressImageBuffer(buffer);
+      const mime = detectMimeTypeFromBuffer(buffer);
+      return { mime: compressed === buffer ? mime : 'image/jpeg', base64: compressed.toString('base64') };
+    }
+
+    const buffer = fs.readFileSync(imagePath);
+    const compressed = await tryCompressImageBuffer(buffer);
+    const mime = getMimeType(imagePath);
+    return { mime: compressed === buffer ? mime : 'image/jpeg', base64: compressed.toString('base64') };
+  }
+
+  // 2. 直接输入 data URI
+  if (isDataUri(imagePath)) {
+    const [, mime, base64Body] = imagePath.match(/^data:([^;]+);base64,(.+)$/i) || [];
+    if (!base64Body) {
+      return { error: '无效的 base64 Data URI 输入' };
+    }
+    const rawBase64 = normalizeBase64(base64Body);
+    const buffer = Buffer.from(rawBase64, 'base64');
+    const compressed = await tryCompressImageBuffer(buffer);
+    return { mime: compressed === buffer ? mime : 'image/jpeg', base64: compressed.toString('base64') };
+  }
+
+  // 3. 直接输入纯 base64 文本
+  if (isLikelyRawBase64(imagePath)) {
+    const rawBase64 = normalizeBase64(imagePath);
+    const buffer = Buffer.from(rawBase64, 'base64');
+    const compressed = await tryCompressImageBuffer(buffer);
+    const mime = detectMimeTypeFromBuffer(buffer);
+    return { mime: compressed === buffer ? mime : 'image/jpeg', base64: compressed.toString('base64') };
+  }
+
+  return { error: `图片文件不存在：${imagePath}` };
+}
+
 /**
  * 拼接完整的 Chat Completions 接口地址
  * 兼容两种情况：传入的是 base url（如 http://host/v1）或完整地址（如 http://host/v1/chat/completions）
@@ -249,12 +447,7 @@ async function recognizeImage(imagePath, prompt, paramConfig) {
     return { success: false, error: '缺少参数 prompt：请提供图像识别提示词' };
   }
 
-  // 2. 校验图片文件存在
-  if (!fs.existsSync(imagePath)) {
-    return { success: false, error: `图片文件不存在：${imagePath}` };
-  }
-
-  // 3. 合并配置（工具参数 config > 命令行参数 > 环境变量）
+  // 2. 合并配置（工具参数 config > 命令行参数 > 环境变量）
   const serverCfg = resolveServerConfig();
   const url = (paramConfig && paramConfig.url) || serverCfg.url;
   const apiKey = (paramConfig && paramConfig.apiKey) || serverCfg.apiKey;
@@ -276,9 +469,12 @@ async function recognizeImage(imagePath, prompt, paramConfig) {
 
   const cfg = { url: buildChatCompletionsUrl(url), apiKey, model };
 
-  // 4. 读取图片并转 base64 Data URL
-  const mime = getMimeType(imagePath);
-  const base64 = fs.readFileSync(imagePath).toString('base64');
+  // 4. 解析图片来源：支持本地图片、.base64 文本文件、base64 Data URI、原始 base64 文本
+  const resolved = await resolveImageSource(imagePath);
+  if (resolved.error) {
+    return { success: false, error: resolved.error };
+  }
+  const { mime, base64 } = resolved;
 
   // 5. 调用 OpenAI 兼容接口（访问量过大/服务端异常时自动重试：间隔2秒，最多重试5次）
   let lastError = null;
@@ -324,14 +520,19 @@ server.registerTool(
   {
     title: '图像识别',
     description:
-      '使用 OpenAI 兼容接口的视觉模型识别本地图片。传入本地图片绝对路径和提示词，返回图像识别结果。' +
+      '使用 OpenAI 兼容接口的视觉模型识别图片。传入图片路径和提示词，返回图像识别结果。' +
+      '支持本地图片绝对路径、网络图片 URL（http/https）、.base64 文本文件（本地或网络）、base64 Data URI、原始 base64 文本。' +
       '接口地址/密钥/模型名由 MCP 客户端环境变量配置（DEEPSEEK_OPENAI_BASE_URL / DEEPSEEK_OPENAI_API_KEY / DEEPSEEK_OPENAI_MODEL，' +
       '或回退 OPENAI_BASE_URL / OPENAI_API_KEY / OPENAI_MODEL），也可在调用时通过 config 参数临时指定。' +
       '适用于图片内容描述、OCR 文字提取、图表解读、物体识别等场景。',
     inputSchema: z.object({
       imagePath: z
         .string()
-        .describe('本地图片文件的绝对路径，例如 C:/Users/xxx/Desktop/photo.png'),
+        .describe(
+          '图片路径：本地图片绝对路径（如 C:/Users/xxx/Desktop/photo.png）、' +
+            '网络图片 URL（如 http://localhost:11888/base64-files/xxx.png）、' +
+            '或网络 base64 文件 URL（如 http://localhost:11888/base64-files/xxx.base64）'
+        ),
       prompt: z
         .string()
         .describe('图像识别提示词，例如"描述这张图片的内容"、"提取图片中的所有文字"'),

@@ -15,10 +15,10 @@ import os from 'node:os';
 import path from 'node:path';
 
 const TEST_IMAGE = path.join(os.tmpdir(), 'deepseek-vision-mcp-test-1x1.png');
-fs.writeFileSync(TEST_IMAGE, Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64'
-));
+const TEST_BASE64_FILE = path.join(os.tmpdir(), 'deepseek-vision-mcp-test-1x1.base64');
+const TEST_PLAIN_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+fs.writeFileSync(TEST_IMAGE, Buffer.from(TEST_PLAIN_BASE64, 'base64'));
+fs.writeFileSync(TEST_BASE64_FILE, TEST_PLAIN_BASE64, 'utf8');
 
 let reqAssertions = [];
 
@@ -103,22 +103,35 @@ try {
   });
   notify('notifications/initialized', {});
 
-  // 3. 调用 recognizeImage（配置走环境变量）
-  const call = await request('tools/call', {
+  // 3.1 调用 recognizeImage：本地图片文件
+  const callFile = await request('tools/call', {
     name: 'recognizeImage',
     arguments: { imagePath: TEST_IMAGE, prompt: '描述这张图片' },
   });
+  assert(callFile.isError !== true, '本地图片文件识别调用未返回 isError');
+  const textFile = callFile.content.map((c) => c.text).join('');
+  assert(textFile.includes('橘色的猫在睡觉'), `本地图片返回识别结果，实际: ${textFile}`);
+  assert(callFile.structuredContent && callFile.structuredContent.success === true, '本地图片返回 structuredContent.success=true');
 
-  assert(call.isError !== true, '识别调用未返回 isError');
-  const text = call.content.map((c) => c.text).join('');
-  assert(text.includes('橘色的猫在睡觉'), `返回识别结果，实际: ${text}`);
-  assert(call.structuredContent && call.structuredContent.success === true, '返回 structuredContent.success=true');
-  assert(call.structuredContent.config.model === 'e2e-vision-model', 'structuredContent 携带生效的 model 配置');
+  // 3.2 调用 recognizeImage：.base64 文本文件
+  const callBase64File = await request('tools/call', {
+    name: 'recognizeImage',
+    arguments: { imagePath: TEST_BASE64_FILE, prompt: '描述这张图片' },
+  });
+  assert(callBase64File.isError !== true, '.base64 文本文件识别调用未返回 isError');
+
+  // 3.3 调用 recognizeImage：纯 base64 文本输入
+  const callPlainBase64 = await request('tools/call', {
+    name: 'recognizeImage',
+    arguments: { imagePath: TEST_PLAIN_BASE64, prompt: '描述这张图片' },
+  });
+  assert(callPlainBase64.isError !== true, '纯 base64 文本输入识别调用未返回 isError');
+
+  assert(callFile.structuredContent.config.model === 'e2e-vision-model', 'structuredContent 携带生效的 model 配置');
 
   // 4. 校验 mock API 收到的请求
-  assert(reqAssertions.length === 1, `mock API 收到 1 次请求，实际 ${reqAssertions.length} 次`);
-  if (reqAssertions.length === 1) {
-    const r = reqAssertions[0];
+  assert(reqAssertions.length === 3, `mock API 收到 3 次请求，实际 ${reqAssertions.length} 次`);
+  for (const r of reqAssertions) {
     assert(r.auth === 'Bearer sk-e2e-test-key', `Authorization 头正确，实际: ${r.auth}`);
     assert(r.model === 'e2e-vision-model', `请求携带 model，实际: ${r.model}`);
     assert(r.imageUrl.startsWith('data:image/png;base64,iVBOR'), '图片以 base64 data URL 传输');
