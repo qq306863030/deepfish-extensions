@@ -48,7 +48,7 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
   "mcpServers": {
     "deepseek-vision-mcp": {
       "command": "npx",
-      "args": ["-y", "deepseek-vision-mcp"],
+      "args": ["-y", "deepseek-vision-mcp@latest"],
       "env": {
         "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
         "DEEPSEEK_OPENAI_API_KEY": "sk-123",
