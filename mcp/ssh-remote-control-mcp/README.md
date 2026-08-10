@@ -1,3 +1,11 @@
+<div align="center">
+
+[🌏 **English**](README.en.md) &nbsp;|&nbsp; [🇨🇳 **中文**](README.md)
+
+</div>
+
+---
+
 # SSH Remote Control MCP
 
 基于 SSH Remote Control Skill 的核心能力，改造成可直接被 MCP 客户端调用的 stdio server。
