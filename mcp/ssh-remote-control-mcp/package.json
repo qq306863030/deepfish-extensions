@@ -1,14 +1,20 @@
 {
   "name": "ssh-remote-control-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Remote SSH control MCP server based on the ssh-remote-control skill, exposing connection, execution, upload, and download tools over stdio.",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "bin": {
-    "ssh-remote-control-mcp": "index.js"
+    "ssh-remote-control-mcp": "dist/index.js"
   },
+  "files": [
+    "dist/",
+    "README.md",
+    "README.en.md"
+  ],
   "scripts": {
-    "build": "esbuild index.js --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --minify",
+    "build": "esbuild index.js --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --minify && node -e \"require('node:fs').cpSync('public','dist/public',{recursive:true})\"",
+    "prepublishOnly": "npm run build",
     "test": "node test.mjs"
   },
   "engines": {
@@ -23,16 +29,22 @@
     "server-management"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git",
+    "directory": "mcp/ssh-remote-control-mcp"
+  },
+  "homepage": "https://github.com/qq306863030/deepfish-extensions/tree/master/mcp/ssh-remote-control-mcp",
+  "bugs": {
+    "url": "https://github.com/qq306863030/deepfish-extensions/issues"
+  },
   "devDependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
-    "esbuild": "^0.28.1",
-    "zod": "^4.2.0"
-  },
-  "dependencies": {
     "crypto-js": "^4.2.0",
+    "esbuild": "^0.28.1",
     "express": "^4.19.2",
-    "fs-extra": "^11.3.6",
     "ssh2": "^1.17.0",
-    "ssh2-sftp-client": "^12.1.1"
+    "ssh2-sftp-client": "^12.1.1",
+    "zod": "^4.2.0"
   }
 }
