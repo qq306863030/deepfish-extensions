@@ -65,9 +65,9 @@ const child = spawn(process.execPath, [REMOTE_INDEX], {
   cwd: TMP_DIR, // 独立 cwd，项目 node_modules 不在解析路径上
   env: {
     ...process.env,
-    DEEPSEEK_OPENAI_BASE_URL: `http://127.0.0.1:${PORT}/v1`,
-    DEEPSEEK_OPENAI_API_KEY: 'sk-zero-dep-key',
-    DEEPSEEK_OPENAI_MODEL: 'zero-dep-vision',
+    OPENAI_BASE_URL: `http://127.0.0.1:${PORT}/v1`,
+    OPENAI_API_KEY: 'sk-zero-dep-key',
+    OPENAI_MODEL: 'zero-dep-vision',
   },
   stdio: ['pipe', 'pipe', 'pipe'],
 });

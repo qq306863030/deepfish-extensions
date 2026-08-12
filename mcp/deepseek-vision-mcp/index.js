@@ -11,9 +11,9 @@
  * 功能：
  *   - MCP 工具 recognizeImage：输入本地图片文件的绝对路径 + 提示词，返回模型识别结果
  *   - 配置参数（url / apiKey / model）由 MCP 客户端通过环境变量注入，也可通过命令行参数传入：
- *       DEEPSEEK_OPENAI_BASE_URL（回退 OPENAI_BASE_URL）→ 接口地址
- *       DEEPSEEK_OPENAI_API_KEY（回退 OPENAI_API_KEY）  → 接口密钥
- *       DEEPSEEK_OPENAI_MODEL（回退 OPENAI_MODEL）      → 模型名称
+ *       OPENAI_BASE_URL → 接口地址
+ *       OPENAI_API_KEY  → 接口密钥
+ *       OPENAI_MODEL    → 模型名称
  *   - 调用时可通过工具参数 config 临时覆盖（优先级：工具参数 > 命令行参数 > 环境变量）
  *   - 接口访问量过大/服务端异常时自动重试（间隔2秒，最多5次）
  *
@@ -58,15 +58,14 @@ function parseCliArgs() {
 
 /**
  * 解析服务级配置（命令行参数 > 环境变量）
- * 环境变量同时兼容 DEEPSEEK_ 前缀与标准 OPENAI_ 前缀
  * @returns {{ url: string, apiKey: string, model: string }}
  */
 function resolveServerConfig() {
   const cli = parseCliArgs();
   return {
-    url: cli.baseUrl || process.env.DEEPSEEK_OPENAI_BASE_URL || process.env.OPENAI_BASE_URL || '',
-    apiKey: cli.apiKey || process.env.DEEPSEEK_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '',
-    model: cli.model || process.env.DEEPSEEK_OPENAI_MODEL || process.env.OPENAI_MODEL || '',
+    url: cli.baseUrl || process.env.OPENAI_BASE_URL || '',
+    apiKey: cli.apiKey || process.env.OPENAI_API_KEY || '',
+    model: cli.model || process.env.OPENAI_MODEL || '',
   };
 }
 
@@ -454,9 +453,9 @@ async function recognizeImage(imagePath, prompt, paramConfig) {
   const model = (paramConfig && paramConfig.model) || serverCfg.model;
 
   const missing = [];
-  if (!url) missing.push('DEEPSEEK_OPENAI_BASE_URL(或 OPENAI_BASE_URL)');
-  if (!apiKey) missing.push('DEEPSEEK_OPENAI_API_KEY(或 OPENAI_API_KEY)');
-  if (!model) missing.push('DEEPSEEK_OPENAI_MODEL(或 OPENAI_MODEL)');
+  if (!url) missing.push('OPENAI_BASE_URL');
+  if (!apiKey) missing.push('OPENAI_API_KEY');
+  if (!model) missing.push('OPENAI_MODEL');
   if (missing.length > 0) {
     return {
       success: false,
@@ -522,8 +521,8 @@ server.registerTool(
     description:
       '使用 OpenAI 兼容接口的视觉模型识别图片。传入图片路径和提示词，返回图像识别结果。' +
       '支持本地图片绝对路径、网络图片 URL（http/https）、.base64 文本文件（本地或网络）、base64 Data URI、原始 base64 文本。' +
-      '接口地址/密钥/模型名由 MCP 客户端环境变量配置（DEEPSEEK_OPENAI_BASE_URL / DEEPSEEK_OPENAI_API_KEY / DEEPSEEK_OPENAI_MODEL，' +
-      '或回退 OPENAI_BASE_URL / OPENAI_API_KEY / OPENAI_MODEL），也可在调用时通过 config 参数临时指定。' +
+      '接口地址/密钥/模型名由 MCP 客户端环境变量配置（OPENAI_BASE_URL / OPENAI_API_KEY / OPENAI_MODEL），' +
+      '也可在调用时通过 config 参数临时指定。' +
       '适用于图片内容描述、OCR 文字提取、图表解读、物体识别等场景。',
     inputSchema: z.object({
       imagePath: z
@@ -576,5 +575,3 @@ server.registerTool(
 
 // 通过 stdio 提供 MCP 服务（serveStdio 自动处理协议版本协商）
 serveStdio(() => server);
-
-log('MCP server 已启动，通过 stdio 监听中...');

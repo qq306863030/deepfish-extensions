@@ -12,7 +12,6 @@ An MCP (Model Context Protocol) Server built on the **[OpenAI-compatible API](ht
 
 > Works with any MCP-compatible client (Claude Desktop, Cursor, ZCode, Cherry Studio, etc.).
 
-> **🚀 Zero-Dependency Publishing**: The project can be tree-shaken with esbuild into a **single file with zero npm dependencies** for npm publishing.
 
 ## Features
 
@@ -47,11 +46,9 @@ MCP clients start the server via stdio, injecting configuration through **enviro
 
 | Environment Variable | Description | Example |
 |---------|------|------|
-| `DEEPSEEK_OPENAI_BASE_URL` | OpenAI-compatible API base URL (auto-appends `/chat/completions`; full URL also accepted) | `http://xxx.com/v1` |
-| `DEEPSEEK_OPENAI_API_KEY` | API key | `sk-123` |
-| `DEEPSEEK_OPENAI_MODEL` | Vision model name | `MiMo_mimo-v2.5` |
-
-> Fallback: If `DEEPSEEK_*` is not set, falls back to standard `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL`.
+| `OPENAI_BASE_URL` | OpenAI-compatible API base URL (auto-appends `/chat/completions`; full URL also accepted) | `http://xxx.com/v1` |
+| `OPENAI_API_KEY` | API key | `sk-123` |
+| `OPENAI_MODEL` | Vision model name | `MiMo_mimo-v2.5` |
 
 ### Using npx Directly (No Installation Required)
 
@@ -64,9 +61,9 @@ No installation needed — just use `npx` as the `command`:
       "command": "npx",
       "args": ["-y", "deepseek-vision-mcp"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -84,9 +81,9 @@ Add to your MCP client configuration file (stdio server + env):
       "command": "node",
       "args": ["D:/code/.../tools/deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -102,9 +99,9 @@ Add to your MCP client configuration file (stdio server + env):
       "command": "node",
       "args": ["D:/code/.../deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -120,9 +117,9 @@ Add to your MCP client configuration file (stdio server + env):
       "command": "node",
       "args": ["D:/code/.../deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }

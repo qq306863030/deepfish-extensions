@@ -41,9 +41,9 @@ const SERVER_ARGS = ['index.js'];
 const SERVER_ENV = {
   ...process.env,
   // 故意留空配置，先验证「配置缺失」的错误提示；再传 config 参数验证识别流程前置校验
-  DEEPSEEK_OPENAI_BASE_URL: '',
-  DEEPSEEK_OPENAI_API_KEY: '',
-  DEEPSEEK_OPENAI_MODEL: '',
+  OPENAI_BASE_URL: '',
+  OPENAI_API_KEY: '',
+  OPENAI_MODEL: '',
 };
 
 let nextId = 1;
@@ -125,7 +125,7 @@ try {
     arguments: { imagePath: TEST_IMAGE, prompt: '描述这张图片' },
   });
   assert(callNoConfig.isError === true, `未配置环境变量时返回 isError=true`);
-  assert(JSON.stringify(callNoConfig.content).includes('DEEPSEEK_OPENAI_BASE_URL'), `错误信息包含配置指引，实际: ${JSON.stringify(callNoConfig.content)}`);
+  assert(JSON.stringify(callNoConfig.content).includes('OPENAI_BASE_URL'), `错误信息包含配置指引，实际: ${JSON.stringify(callNoConfig.content)}`);
 
   // 5. tools/call - 图片不存在（配置齐了但文件不存在）→ 应返回 isError 且提示文件不存在
   const callNoFile = await request('tools/call', {
@@ -145,7 +145,7 @@ try {
     arguments: { imagePath: NET_IMAGE_URL, prompt: '描述这张图片' },
   });
   assert(callNetImage.isError === true, `网络图片 URL 未配置环境变量时返回 isError=true`);
-  assert(JSON.stringify(callNetImage.content).includes('DEEPSEEK_OPENAI_BASE_URL'), `网络图片 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetImage.content)}`);
+  assert(JSON.stringify(callNetImage.content).includes('OPENAI_BASE_URL'), `网络图片 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetImage.content)}`);
 
   // 7. tools/call - 网络 base64 文件 URL（配置缺失，但网络路径应能成功下载并走到配置校验）
   const callNetBase64 = await request('tools/call', {
@@ -153,7 +153,7 @@ try {
     arguments: { imagePath: NET_BASE64_URL, prompt: '描述这张图片' },
   });
   assert(callNetBase64.isError === true, `网络 base64 文件 URL 未配置环境变量时返回 isError=true`);
-  assert(JSON.stringify(callNetBase64.content).includes('DEEPSEEK_OPENAI_BASE_URL'), `网络 base64 文件 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetBase64.content)}`);
+  assert(JSON.stringify(callNetBase64.content).includes('OPENAI_BASE_URL'), `网络 base64 文件 URL 成功下载并走到配置校验，实际: ${JSON.stringify(callNetBase64.content)}`);
 
   console.log('\n🎉 冒烟测试全部通过');
 } catch (err) {

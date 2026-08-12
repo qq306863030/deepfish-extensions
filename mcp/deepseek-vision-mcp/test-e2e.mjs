@@ -1,7 +1,7 @@
 /**
  * 端到端测试：MCP client → MCP server → mock OpenAI 兼容接口
  * 验证：
- *   1. 环境变量配置被正确注入（DEEPSEEK_OPENAI_* 前缀）
+ *   1. 环境变量配置被正确注入（OPENAI_* 前缀）
  *   2. 请求体结构正确（image_url data URL + text prompt）
  *   3. 识别结果从 mock API 完整返回给 MCP client
  *
@@ -60,9 +60,9 @@ function notify(method, params) {
 const child = spawn(process.execPath, ['index.js'], {
   env: {
     ...process.env,
-    DEEPSEEK_OPENAI_BASE_URL: `http://127.0.0.1:${PORT}/v1`,
-    DEEPSEEK_OPENAI_API_KEY: 'sk-e2e-test-key',
-    DEEPSEEK_OPENAI_MODEL: 'e2e-vision-model',
+    OPENAI_BASE_URL: `http://127.0.0.1:${PORT}/v1`,
+    OPENAI_API_KEY: 'sk-e2e-test-key',
+    OPENAI_MODEL: 'e2e-vision-model',
   },
   stdio: ['pipe', 'pipe', 'pipe'],
 });

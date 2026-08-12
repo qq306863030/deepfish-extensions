@@ -12,7 +12,6 @@
 
 > 可在任意支持 MCP 的客户端（Claude Desktop、Cursor、ZCode、Cherry Studio 等）中使用。
 
-> **🚀 零依赖发布**：项目支持用 esbuild tree-shaking 打包成**单文件、零 npm 依赖**的可执行程序发布到 npm。
 
 ## 功能
 
@@ -33,11 +32,9 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
 
 | 环境变量 | 说明 | 示例 |
 |---------|------|------|
-| `DEEPSEEK_OPENAI_BASE_URL` | OpenAI 兼容接口地址（base url，自动拼接 `/chat/completions`；也支持完整地址） | `http://xxx.com/v1` |
-| `DEEPSEEK_OPENAI_API_KEY` | 接口密钥 | `sk-123` |
-| `DEEPSEEK_OPENAI_MODEL` | 视觉模型名称 | `MiMo_mimo-v2.5` |
-
-> 兼容回退：未设置 `DEEPSEEK_*` 时自动回退到标准 `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL`。
+| `OPENAI_BASE_URL` | OpenAI 兼容接口地址（base url，自动拼接 `/chat/completions`；也支持完整地址） | `http://xxx.com/v1` |
+| `OPENAI_API_KEY` | 接口密钥 | `sk-123` |
+| `OPENAI_MODEL` | 视觉模型名称 | `MiMo_mimo-v2.5` |
 
 ### MCP 客户端直接引用 npx（无需安装）
 
@@ -50,9 +47,9 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
       "command": "npx",
       "args": ["-y", "deepseek-vision-mcp@latest"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -70,9 +67,9 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
       "command": "node",
       "args": ["D:/code/.../tools/deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -88,9 +85,9 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
       "command": "node",
       "args": ["D:/code/.../deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
@@ -106,9 +103,9 @@ MCP 客户端以 stdio 方式启动该 server，通过 **环境变量** 注入�
       "command": "node",
       "args": ["D:/code/.../deepseek-vision-mcp/index.js"],
       "env": {
-        "DEEPSEEK_OPENAI_BASE_URL": "http://xxx.com/v1",
-        "DEEPSEEK_OPENAI_API_KEY": "sk-123",
-        "DEEPSEEK_OPENAI_MODEL": "MiMo_mimo-v2.5"
+        "OPENAI_BASE_URL": "http://xxx.com/v1",
+        "OPENAI_API_KEY": "sk-123",
+        "OPENAI_MODEL": "MiMo_mimo-v2.5"
       }
     }
   }
