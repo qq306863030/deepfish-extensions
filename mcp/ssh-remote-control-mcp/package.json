@@ -1,6 +1,6 @@
 {
   "name": "ssh-remote-control-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Remote SSH control MCP server based on the ssh-remote-control skill, exposing connection, execution, upload, and download tools over stdio.",
   "type": "module",
   "main": "dist/index.js",
@@ -13,7 +13,7 @@
     "README.en.md"
   ],
   "scripts": {
-    "build": "esbuild index.js --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --minify && node -e \"require('node:fs').cpSync('public','dist/public',{recursive:true})\"",
+    "build": "esbuild index.js --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.js --minify --banner:js=\"import { createRequire as __createRequire } from 'module'; import { fileURLToPath as __fileURLToPath } from 'url'; import { dirname as __dirnameFn } from 'path'; const require = __createRequire(import.meta.url); const __filename = __fileURLToPath(import.meta.url); const __dirname = __dirnameFn(__filename);\" && node -e \"require('node:fs').cpSync('public','dist/public',{recursive:true})\"",
     "prepublishOnly": "npm run build",
     "test": "node test.mjs"
   },

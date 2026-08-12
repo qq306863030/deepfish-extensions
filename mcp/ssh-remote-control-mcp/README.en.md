@@ -43,7 +43,7 @@ Suitable for quickly connecting in any MCP-capable client:
     "ssh-remote-control-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "ssh-remote-control-mcp@latest"],
+      "args": ["ssh-remote-control-mcp@latest"],
       "env": {
         "SSH_REMOTE_CONTROL_PORT": "11889"
       }
@@ -94,7 +94,7 @@ Suitable for quickly connecting in any MCP-capable client:
     "ssh-remote-control-mcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "ssh-remote-control-mcp"],
+      "args": ["ssh-remote-control-mcp@latest"],
       "env": {
         "SSH_REMOTE_CONTROL_PORT": "11889"
       }
