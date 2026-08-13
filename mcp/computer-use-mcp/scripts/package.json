@@ -1,0 +1,29 @@
+{
+  "name": "computer-use-cli",
+  "version": "1.0.0",
+  "description": "桌面自动化控制命令行工具",
+  "main": "index.js",
+  "bin": {
+    "desktop-auto": "./bin/cli.js",
+    "da": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "desktop",
+    "automation",
+    "screenshot",
+    "mouse",
+    "keyboard"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "chalk": "^4.1.2",
+    "commander": "^15.0.0",
+    "jimp": "^1.6.1",
+    "sharp": "^0.35.3"
+  }
+}

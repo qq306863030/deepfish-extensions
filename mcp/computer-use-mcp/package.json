@@ -1,0 +1,35 @@
+{
+  "name": "computer-use-mcp",
+  "version": "1.0.0",
+  "description": "桌面自动化 MCP 工具：Agent 通过截图获取画面、以截图像素坐标控制鼠标键盘、再截图验证，形成电脑操作闭环",
+  "type": "module",
+  "main": "index.js",
+  "bin": {
+    "computer-use-mcp": "index.js"
+  },
+  "files": [
+    "index.js",
+    "src/",
+    "README.md",
+    "AGENTS.md",
+    "PLAN.md",
+    "TEST-PLAN.md"
+  ],
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test \"tests/unit/*.test.mjs\"",
+    "test:functional": "node --test tests/functional/screen-mouse.test.mjs && node --test tests/functional/keyboard-window.test.mjs",
+    "test:smoke": "node test.mjs",
+    "test:all": "npm test && npm run test:functional && npm run test:smoke"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@nut-tree-fork/nut-js": "^4.2.6",
+    "sharp": "^0.35.3",
+    "zod": "^4.2.0"
+  }
+}

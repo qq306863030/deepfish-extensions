@@ -1,0 +1,16 @@
+# 依赖
+node_modules/
+
+# 截图产物
+screenshots/
+
+# 临时文件
+*.tmp
+tmp_screen.png
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# npm
+*.tgz
