@@ -1,19 +1,17 @@
 {
-  "name": "computer-use-mcp",
+  "name": "win-computer-use-mcp",
   "version": "1.0.0",
   "description": "桌面自动化 MCP 工具：Agent 通过截图获取画面、以截图像素坐标控制鼠标键盘、再截图验证，形成电脑操作闭环",
   "type": "module",
   "main": "index.js",
   "bin": {
-    "computer-use-mcp": "index.js"
+    "win-computer-use-mcp": "index.js"
   },
   "files": [
     "index.js",
     "src/",
     "README.md",
-    "AGENTS.md",
-    "PLAN.md",
-    "TEST-PLAN.md"
+    "README.en.md"
   ],
   "scripts": {
     "start": "node index.js",
@@ -25,7 +23,27 @@
   "engines": {
     "node": ">=20"
   },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "computer-use",
+    "desktop-automation",
+    "nut-js",
+    "screenshot",
+    "mouse",
+    "keyboard",
+    "windows"
+  ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/qq306863030/deepfish-extensions.git",
+    "directory": "mcp/computer-use-mcp"
+  },
+  "homepage": "https://github.com/qq306863030/deepfish-extensions/tree/master/mcp/computer-use-mcp",
+  "bugs": {
+    "url": "https://github.com/qq306863030/deepfish-extensions/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/server": "^2.0.0",
     "@nut-tree-fork/nut-js": "^4.2.6",

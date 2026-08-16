@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * computer-use-mcp 调试 CLI
+ * win-computer-use-mcp 调试 CLI
  *
  * 用法：
  *   node cli.mjs screenshot [--region x,y,w,h] [--window <title>]
@@ -101,7 +101,7 @@ async function main() {
 
 function printHelp() {
   process.stderr.write(`
-computer-use-mcp 调试 CLI
+win-computer-use-mcp 调试 CLI
 用法:
   screenshot [--region x,y,w,h] [--window <title>]
   info

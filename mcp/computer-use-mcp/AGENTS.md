@@ -9,7 +9,7 @@
 
 `computer-use-mcp` 是一个**桌面自动化 MCP 工具**：让 Agent 通过「截图获取画面 → 视觉模型理解 → 用截图像素坐标控制鼠标/键盘 → 截图验证」的闭环操作电脑（Windows）。
 
-- 前身：`D:\code\gitea\skills\computer-use-skill`（一个 CLI 桌面自动化工具，已拷贝核心代码到 `scripts/`）
+- 前身：`D:\code\gitea\skills\computer-use-skill`（一个 CLI 桌面自动化工具，核心能力已重写进 `src/core/`）
 - 方案文档：`PLAN.md`；功能测试清单：`TEST-PLAN.md`（**必须全绿才能结束开发**）
 
 ## 2. 技术栈与运行环境
@@ -46,7 +46,6 @@ computer-use-mcp/
 │   ├── unit/             # 单元测试（不碰真实设备）
 │   └── functional/       # 真机功能测试（WinForms 测试窗口）
 ├── test.mjs              # MCP stdio 冒烟测试
-├── scripts/              # 【遗留】旧 CLI 核心代码（CommonJS+chalk），仅参考，不再维护
 ├── AGENTS.md             # 本文件
 ├── PLAN.md               # 实施方案
 ├── TEST-PLAN.md          # 功能测试清单（验收标准）
@@ -67,7 +66,7 @@ nut-js / PowerShell / sharp
 
 - **`src/core/` 禁止 import `@modelcontextprotocol/server` 或 `zod`** —— 保持可独立单元测试；
 - **`src/tools/` 不做业务逻辑**，只做参数翻译、调用 core、组装 MCP 返回；
-- **`scripts/` CLI 只调 `src/core`**，不复制逻辑（旧版把逻辑抄了多份，是问题根源）。
+- **调试 CLI（`cli.mjs`）只调 `src/core`**，不复制逻辑（旧版把逻辑抄了多份，是问题根源，已删除）。
 
 ### 4.2 模块导出风格
 

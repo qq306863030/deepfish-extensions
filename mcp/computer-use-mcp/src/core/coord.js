@@ -49,12 +49,18 @@ export function invalidateScreenCache() {
  * 物理像素 -> 逻辑像素（MCP 坐标 -> nut-js 坐标）。
  * @param {{x: number, y: number}} p 物理像素坐标
  * @returns {Promise<{x: number, y: number}>} 逻辑像素坐标（取整）
+ * @throws 坐标非有限数时抛错
  */
 export async function physicalToLogical(p) {
   const info = await getScreenInfo();
+  const x = Number(p.x);
+  const y = Number(p.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new Error(`坐标必须为有限数字: x=${p.x}, y=${p.y}`);
+  }
   return {
-    x: Math.round(p.x / info.scaleX),
-    y: Math.round(p.y / info.scaleY),
+    x: Math.round(x / info.scaleX),
+    y: Math.round(y / info.scaleY),
   };
 }
 
@@ -71,13 +77,19 @@ export async function logicalToPhysical(p) {
 
 /**
  * 将物理像素坐标钳制到屏幕物理范围内。
+ * NaN / 非有限数坐标抛出明确错误，防止把无效坐标发给 nut-js 导致异常。
  * @returns {Promise<{x, y}>} 钳制后的物理坐标
+ * @throws 坐标非有限数时抛错
  */
 export async function clampPhysicalPoint(x, y) {
+  const nums = [x, y].map(Number);
+  if (nums.some((n) => !Number.isFinite(n))) {
+    throw new Error(`坐标必须为有限数字: x=${x}, y=${y}`);
+  }
   const info = await getScreenInfo();
   return {
-    x: Math.max(0, Math.min(Math.round(x), info.physicalWidth - 1)),
-    y: Math.max(0, Math.min(Math.round(y), info.physicalHeight - 1)),
+    x: Math.max(0, Math.min(Math.round(nums[0]), info.physicalWidth - 1)),
+    y: Math.max(0, Math.min(Math.round(nums[1]), info.physicalHeight - 1)),
   };
 }
 

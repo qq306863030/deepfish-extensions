@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * computer-use-mcp —— 桌面自动化 MCP 服务器
+ * win-computer-use-mcp —— 桌面自动化 MCP 服务器
  *
  * 让 Agent 通过「截图获取画面 → 视觉模型理解 → 用截图像素坐标控制鼠标键盘 → 截图验证」
  * 的闭环操作 Windows 电脑。
@@ -53,7 +53,7 @@ function wrap(handler) {
 }
 
 const server = new McpServer(
-  { name: 'computer-use-mcp', version: '1.0.0' },
+  { name: 'win-computer-use-mcp', version: '1.0.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -64,9 +64,18 @@ server.registerTool(
   {
     title: '截取屏幕画面',
     description:
-      '截取屏幕并保存为 PNG，返回文件绝对路径 + 尺寸 + scale。' +
-      '可全屏、区域（x,y,width,height 为物理像素）、或按窗口标题/句柄。' +
-      '坐标空间：截图为物理像素，后续鼠标操作坐标以此为准（逻辑 = 物理 / scale）。',
+      '截取屏幕画面并保存为 PNG 文件。返回值：\n' +
+      '- filePath: PNG 绝对路径（直接传给视觉模型识别）\n' +
+      '- width/height: 截图原始物理像素尺寸（即坐标空间）\n' +
+      '- scaleX/scaleY: DPI 缩放比（逻辑=物理/scale）\n' +
+      '- imageWidth/imageHeight: 降采样后实际返回给模型的尺寸（若设置 maxSize）\n' +
+      '- scale: 降采样比（physical = model_coord / scale）\n\n' +
+      '坐标约定：截图 width/height 就是坐标空间。视觉模型看到的 (px, py) 直接作为 mouseClick(x, y) 的参数。\n\n' +
+      '用法示例：\n' +
+      '1. 全屏截图：screenshot() → 得到 2560x1600 的截图，模型坐标在这个空间内；\n' +
+      '2. 裁剪放大：screenshot(region={x:500, y:300, width:400, height:200}) → 识别小目标（图标/菜单）；\n' +
+      '3. 降采样：screenshot(maxSize=1568) → 模型坐标按 scale 换算回物理（避免大图幻觉）；\n' +
+      '4. 十字准星：screenshot(showCursor=true) → 验证点击是否命中（红色十字标记光标位置）。',
     inputSchema: z
       .object({
         region: z
@@ -85,13 +94,16 @@ server.registerTool(
           })
           .optional()
           .describe('按窗口截图（与 region 二选一）'),
+        showCursor: z.boolean().optional().default(false).describe('在鼠标位置绘制红色十字准星，用于验证点击命中'),
+        maxSize: z.number().int().positive().optional().describe('降采样最长边像素（如 1568），返回 scale 供坐标换算'),
       })
       .strict(),
   },
-  wrap(async ({ region, window: winTarget }) => {
-    if (region) return await core.screenshot.captureRegion(region);
-    if (winTarget) return await core.screenshot.captureWindow(winTarget);
-    return await core.screenshot.captureFullscreen();
+  wrap(async ({ region, window: winTarget, showCursor, maxSize }) => {
+    const opts = { showCursor, maxSize };
+    if (region) return await core.screenshot.captureRegion(region, undefined, opts);
+    if (winTarget) return await core.screenshot.captureWindow(winTarget, undefined, opts);
+    return await core.screenshot.captureFullscreen(undefined, opts);
   })
 );
 
@@ -138,7 +150,12 @@ server.registerTool(
     title: '鼠标点击',
     description:
       '在物理像素坐标 (x,y) 点击。button: left/right/middle；double=true 双击。' +
-      '注意：点击前会先移动到该位置。',
+      '注意：点击前会先移动到该位置。\n' +
+      '提示：\n' +
+      '- 点击目标（图标/按钮/链接）前务必先 screenshot 截图确认坐标；\n' +
+      '- 用光标尖端对准元素中心，不要点边缘；\n' +
+      '- 点击后用 screenshot(showCursor=true) 验证是否命中，未命中则按偏差比例调整坐标重试；\n' +
+      '- 点击窗口未聚焦的应用可能只置前未触发点击，需再次点击。',
     inputSchema: z
       .object({
         x: z.number().int().describe('物理 x'),
@@ -175,8 +192,17 @@ server.registerTool(
   {
     title: '鼠标拖拽',
     description:
-      '按住左键从 (fromX,fromY) 拖到 (toX,toY) 后释放（拖拽选中/移动）。' +
-      'steps 为插值步数，duration 为总时长 ms。拖拽结束自动释放左键。',
+      '按住左键从起点拖到终点后释放（用于移动图标/文件等）。\n\n' +
+      '关键参数：\n' +
+      '- fromX/fromY: 起点物理坐标，必须精确命中图标中心（偏差>10px会变成"选中"而非"拖拽"）\n' +
+      '- toX/toY: 终点物理坐标，图标会落到此处附近（网格吸附约56px）\n' +
+      '- steps: 插值步数，桌面图标建议 >=30（步数太少桌面不识别为拖拽）\n' +
+      '- duration: 总时长(ms)，建议 >=800（太快桌面不识别）\n\n' +
+      '定位方法：\n' +
+      '1. screenshot 全屏截图 → 传给视觉模型 → 模型返回图标中心的物理坐标 (x, y)；\n' +
+      '2. 如果全屏图坐标不准，用 region 裁剪图标周围区域，模型在小图中定位更准；\n' +
+      '3. 拖拽前先用 mouseClick 单击验证起点是否命中（看是否高亮），再执行拖拽。\n\n' +
+      '注意：目标点与其他图标重叠会触发"拖入文件夹"，需确保目标区域无其他图标。',
     inputSchema: z
       .object({
         fromX: z.number().int().describe('起点物理 x'),
@@ -246,9 +272,16 @@ server.registerTool(
   {
     title: '输入文本（剪贴板粘贴）',
     description:
-      '输入文本（含中文/特殊字符），走"剪贴板粘贴 + Ctrl+V"方案，绕开输入法(IME)问题。' +
-      '默认粘贴后恢复原剪贴板内容。enter=true 时输入后按回车。' +
-      '终端类应用可能需 shortcut="ctrl+shift+v"。',
+      '输入文本（含中文/特殊字符），自动走剪贴板粘贴方案绕开输入法。\n\n' +
+      '用法：先用 mouseClick 点击目标输入框聚焦，再调用 keyboardType 输入文字。\n\n' +
+      '参数：\n' +
+      '- text: 要输入的文字（支持中文/换行/特殊字符）\n' +
+      '- enter: true 则输入后自动回车（如搜索框提交）\n' +
+      '- shortcut: 默认 ctrl+v，终端类应用传 ctrl+shift+v\n\n' +
+      '示例：\n' +
+      '- keyboardType("Hello World 123") → 输入英文\n' +
+      '- keyboardType("股市行情", enter=true) → 输入并回车搜索\n' +
+      '- keyboardKey("ctrl+s") → 保存（组合键用 keyboardKey）',
     inputSchema: z
       .object({
         text: z.string().describe('要输入的文本（支持中文/换行）'),
@@ -267,9 +300,16 @@ server.registerTool(
   {
     title: '按键/组合键',
     description:
-      '按键或组合键，如 "enter"、"ctrl+c"、"alt+tab"、"ctrl+shift+esc"、"win+r"。' +
-      '支持修饰键 ctrl/shift/alt/win、字母、数字、F1-F24、方向键、小键盘 num0-9 等。' +
-      '按键自动释放，防止卡键。',
+      '按键或组合键（自动释放防卡键）。\n\n' +
+      '常用示例：\n' +
+      '- win+d: 显示桌面（走 Shell.Application.MinimizeAll，可靠）\n' +
+      '- ctrl+c / ctrl+v: 复制/粘贴\n' +
+      '- ctrl+l: 定位浏览器地址栏\n' +
+      '- ctrl+s: 保存文件\n' +
+      '- alt+f4: 关闭当前窗口\n' +
+      '- enter: 回车确认\n' +
+      '- f2: 重命名\n\n' +
+      '支持：修饰键 ctrl/shift/alt/win/cmd/super、字母、数字、F1-F24、方向键、小键盘 num0-9 等。',
     inputSchema: z
       .object({
         keys: z.string().min(1).describe('按键组合，+ 连接'),
@@ -454,6 +494,6 @@ server.registerTool(
 try {
   await serveStdio(() => server);
 } catch (e) {
-  log('computer-use-mcp 启动失败:', e.message);
+  log('win-computer-use-mcp 启动失败:', e.message);
   process.exit(1);
 }

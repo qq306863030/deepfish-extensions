@@ -154,11 +154,12 @@ export async function drag(fromX, fromY, toX, toY, opts = {}) {
   // 先移动到起点
   await mouse.move(new Point(fLogical.x, fLogical.y));
   await sleep(50);
-  // 按住左键
+  // 按住左键，并停留足够时间让 Windows Shell 识别为拖拽（而非单击）
   await mouse.pressButton(Button.LEFT);
+  await sleep(250);
+  let n = Math.max(2, Math.round(steps));
   try {
     // 沿直线插值移动
-    const n = Math.max(2, Math.round(steps));
     const stepMs = duration / n;
     for (let i = 1; i <= n; i++) {
       const t = i / n;
@@ -167,7 +168,8 @@ export async function drag(fromX, fromY, toX, toY, opts = {}) {
       await mouse.move(new Point(px, py));
       if (i < n) await sleep(stepMs);
     }
-    await sleep(50);
+    // 终点停留片刻，确保放下（drop）被识别
+    await sleep(200);
   } finally {
     // 无论成败都释放，防止锁死鼠标
     await mouse.releaseButton(Button.LEFT);

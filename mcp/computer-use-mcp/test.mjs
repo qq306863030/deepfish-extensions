@@ -72,7 +72,7 @@ await check('initialize 握手', async () => {
     clientInfo: { name: 'smoke-test', version: '1.0.0' },
   });
   if (!res.result || !res.result.serverInfo) throw new Error('initialize 无 serverInfo');
-  if (res.result.serverInfo.name !== 'computer-use-mcp') throw new Error(`serverName = ${res.result.serverInfo.name}`);
+  if (res.result.serverInfo.name !== 'win-computer-use-mcp') throw new Error(`serverName = ${res.result.serverInfo.name}`);
 });
 
 await check('initialized 通知', async () => {

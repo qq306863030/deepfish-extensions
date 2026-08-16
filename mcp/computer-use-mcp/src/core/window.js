@@ -108,10 +108,29 @@ Write-Output $pidOut
 /** 获取窗口矩形（逻辑坐标） */
 export async function getWindowRegion(handle) {
   try {
-    // 通过 nut-js 获取（逻辑坐标）
-    const w = await getWindowByHandle(handle);
-    if (!w) return null;
-    return await w.getRegion();
+    // 优先用 PowerShell GetWindowRect（Unicode 安全、不依赖 nut-js 缓存）
+    const out = runPowerShell(`
+      Add-Type -TypeDefinition '
+      using System;
+      using System.Runtime.InteropServices;
+      public class GR {
+        [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+        [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
+      }
+      ';
+      $r = New-Object GR+RECT
+      [GR]::GetWindowRect([IntPtr]${handle}, [ref]$r) | Out-Null
+      Write-Output "$($r.Left)|$($r.Top)|$($r.Right)|$($r.Bottom)"
+    `);
+    const seg = out.trim().split('|').map(Number);
+    if (seg.length === 4 && seg.every(Number.isFinite)) {
+      const [left, top, right, bottom] = seg;
+      // 最小化窗口 rect 可能为 -32000（无效），跳过
+      if (right > left && bottom > top && left >= -32000) {
+        return { left, top, right, bottom, width: right - left, height: bottom - top };
+      }
+    }
+    return null;
   } catch (_) {
     return null;
   }
