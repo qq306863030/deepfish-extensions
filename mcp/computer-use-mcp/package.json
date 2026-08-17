@@ -1,7 +1,7 @@
 {
   "name": "win-computer-use-mcp",
   "version": "1.0.0",
-  "description": "桌面自动化 MCP 工具：Agent 通过截图获取画面、以截图像素坐标控制鼠标键盘、再截图验证，形成电脑操作闭环",
+  "description": "Windows桌面自动化 MCP 工具：Agent 通过截图获取画面、以截图像素坐标控制鼠标键盘、再截图验证，形成电脑操作闭环",
   "type": "module",
   "main": "index.js",
   "bin": {
