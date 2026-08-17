@@ -1,6 +1,6 @@
 {
   "name": "ssh-remote-control-mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Remote SSH control MCP server based on the ssh-remote-control skill, exposing connection, execution, upload, and download tools over stdio.",
   "type": "module",
   "main": "dist/index.js",

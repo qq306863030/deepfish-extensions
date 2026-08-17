@@ -20,9 +20,9 @@ An MCP (Model Context Protocol) server built on the core capabilities of the SSH
 - `getConfigPath`: View the SSH connection config file path
 - `testConnection`: Test whether the current connection can authenticate
 - `execCommand`: Execute a shell command on the remote server
-- `uploadPath`: Upload a local file or directory to the remote server
-- `downloadPath`: Download a file or directory from the remote server
-- `openManager`: Open the local web management page
+- `uploadPath`: Upload a local file to the remote server (supports resumable transfer, returns transfer statistics)
+- `downloadPath`: Download a file from the remote server to local (supports resumable transfer, returns transfer statistics)
+- `openManager`: Open the local web management page (supports file upload/download with real-time progress, speed display, and task cancellation)
 
 ## Configuration
 
@@ -45,7 +45,8 @@ Suitable for quickly connecting in any MCP-capable client:
       "command": "npx",
       "args": ["ssh-remote-control-mcp@latest"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -62,7 +63,8 @@ Suitable for quickly connecting in any MCP-capable client:
       "command": "node",
       "args": ["D:/code/.../mcp/ssh-remote-control-mcp/index.js"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -79,7 +81,8 @@ Suitable for quickly connecting in any MCP-capable client:
       "command": "node",
       "args": ["D:/code/.../mcp/ssh-remote-control-mcp/index.js"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -96,7 +99,8 @@ Suitable for quickly connecting in any MCP-capable client:
       "command": "npx",
       "args": ["ssh-remote-control-mcp@latest"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -109,6 +113,7 @@ Suitable for quickly connecting in any MCP-capable client:
 |---|---|
 | `SSH_REMOTE_CONTROL_CONFIG_PATH` | Optional. Specifies the SSH connection config file path; uses the default when not set |
 | `SSH_REMOTE_CONTROL_PORT` | Specifies the web management page listening port, default `11889` |
+| `SSH_REMOTE_CONTROL_TIMEOUT` | Optional. Global operation timeout in milliseconds for command execution, file upload and download. Set to `-1` for no timeout limit; defaults to no limit when not set |
 
 ## Running
 

@@ -20,9 +20,9 @@
 - `getConfigPath`：查看 SSH 连接配置文件路径
 - `testConnection`：测试当前连接是否可认证
 - `execCommand`：在远程服务器上执行 shell 命令
-- `uploadPath`：上传本地文件或目录到远程服务器
-- `downloadPath`：从远程服务器下载文件或目录
-- `openManager`：打开本地 Web 管理页面
+- `uploadPath`：上传本地文件到远程服务器（支持断点续传，返回传输统计）
+- `downloadPath`：从远程服务器下载文件到本地（支持断点续传，返回传输统计）
+- `openManager`：打开本地 Web 管理页面（页面支持文件上传/下载，实时显示传输进度与速度，可取消任务）
 
 ## 配置
 
@@ -45,7 +45,8 @@
       "command": "npx",
       "args": ["ssh-remote-control-mcp@latest"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -62,7 +63,8 @@
       "command": "node",
       "args": ["D:/code/.../mcp/ssh-remote-control-mcp/index.js"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -79,7 +81,8 @@
       "command": "node",
       "args": ["D:/code/.../mcp/ssh-remote-control-mcp/index.js"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -96,7 +99,8 @@
       "command": "npx",
       "args": ["ssh-remote-control-mcp@latest"],
       "env": {
-        "SSH_REMOTE_CONTROL_PORT": "11889"
+        "SSH_REMOTE_CONTROL_PORT": "11889",
+        "SSH_REMOTE_CONTROL_TIMEOUT": "-1"
       }
     }
   }
@@ -109,6 +113,7 @@
 |---|---|
 | `SSH_REMOTE_CONTROL_CONFIG_PATH` | 可选，指定 SSH 连接配置文件路径；不设置时使用默认值 |
 | `SSH_REMOTE_CONTROL_PORT` | 指定 Web 管理页面监听端口，默认 `11889` |
+| `SSH_REMOTE_CONTROL_TIMEOUT` | 可选，全局操作超时（毫秒），作用于命令执行、文件上传与下载；设置为 `-1` 表示不限制超时，不设置时默认不限制 |
 
 ## 运行
 

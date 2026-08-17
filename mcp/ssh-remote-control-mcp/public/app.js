@@ -43,6 +43,15 @@ const elements = {
   togglePasswordBtn: document.getElementById('togglePasswordBtn'),
   togglePassphraseBtn: document.getElementById('togglePassphraseBtn'),
   serverPort: document.getElementById('serverPort'),
+  uploadForm: document.getElementById('uploadForm'),
+  downloadForm: document.getElementById('downloadForm'),
+  uploadLocalPath: document.getElementById('uploadLocalPath'),
+  uploadRemotePath: document.getElementById('uploadRemotePath'),
+  uploadOverwrite: document.getElementById('uploadOverwrite'),
+  downloadRemotePath: document.getElementById('downloadRemotePath'),
+  downloadLocalPath: document.getElementById('downloadLocalPath'),
+  downloadOverwrite: document.getElementById('downloadOverwrite'),
+  transferTasks: document.getElementById('transferTasks'),
 };
 
 function showToast(message, type = 'info') {
@@ -350,3 +359,207 @@ function attachEvents() {
 
 attachEvents();
 loadData();
+
+// ---------- 文件传输：实时进度 + 断点续传 ----------
+
+const transferPoller = new Map(); // taskId -> intervalId
+
+const TRANSFER_STATUS_TEXT = {
+  running: '传输中',
+  done: '已完成',
+  error: '失败',
+  cancelled: '已取消',
+};
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+  return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatSpeed(bytesPerSec) {
+  if (!bytesPerSec || bytesPerSec <= 0) return '';
+  return `${formatBytes(bytesPerSec)}/s`;
+}
+
+function ensureTaskElement(task) {
+  let el = document.getElementById(`task-${task.id}`);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = `task-${task.id}`;
+    el.className = 'transfer-task';
+    el.innerHTML = `
+      <div class="task-head">
+        <div class="task-title">
+          <span class="task-type-icon">${task.type === 'upload' ? '⬆' : '⬇'}</span>
+          <span class="task-name"></span>
+          <span class="task-status-badge running">传输中</span>
+        </div>
+        <button type="button" class="btn-cancel-task" data-task-id="${task.id}" title="取消任务">✕</button>
+      </div>
+      <div class="task-progress">
+        <div class="progress-track"><div class="progress-fill"></div></div>
+      </div>
+      <div class="task-meta">
+        <span class="task-percent">0%</span>
+        <span class="task-size"></span>
+        <span class="task-speed"></span>
+      </div>
+      <div class="task-message"></div>
+    `;
+    elements.transferTasks.prepend(el);
+  }
+  return el;
+}
+
+// 更新同一个任务元素（不新增行），实时刷新进度条
+function renderTransferTask(task) {
+  const el = ensureTaskElement(task);
+  const statusText = TRANSFER_STATUS_TEXT[task.status] || task.status;
+  const badge = el.querySelector('.task-status-badge');
+  badge.textContent = statusText;
+  badge.className = `task-status-badge ${task.status}`;
+
+  el.querySelector('.task-name').textContent = `${task.localPath} → ${task.remotePath}`;
+
+  const fill = el.querySelector('.progress-fill');
+  const percent = el.querySelector('.task-percent');
+  const size = el.querySelector('.task-size');
+  const speed = el.querySelector('.task-speed');
+  const message = el.querySelector('.task-message');
+  const cancelBtn = el.querySelector('.btn-cancel-task');
+
+  const pct = task.percent || 0;
+  fill.style.width = `${pct}%`;
+  fill.classList.toggle('error', task.status === 'error');
+  percent.textContent = `${pct}%`;
+  size.textContent = task.total > 0 ? `${formatBytes(task.transferred || 0)} / ${formatBytes(task.total)}` : '';
+  speed.textContent = formatSpeed(task.speed);
+
+  if (task.status === 'done') {
+    message.textContent = task.message || '传输完成';
+    message.classList.remove('error');
+    message.classList.add('success');
+    cancelBtn.classList.add('hidden');
+  } else if (task.status === 'error' || task.status === 'cancelled') {
+    message.textContent = task.error || task.message || '';
+    message.classList.remove('success');
+    message.classList.add('error');
+    cancelBtn.classList.add('hidden');
+  } else {
+    message.textContent = '';
+    cancelBtn.classList.remove('hidden');
+  }
+}
+
+async function pollTransferTask(taskId) {
+  try {
+    const res = await fetch(`/api/transfer/tasks/${taskId}`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '查询任务失败');
+    renderTransferTask(json.task);
+    if (['done', 'error', 'cancelled'].includes(json.task.status)) {
+      stopPolling(taskId);
+    }
+  } catch (err) {
+    // 任务可能已被服务端清理，停止轮询
+    stopPolling(taskId);
+  }
+}
+
+function startPolling(taskId) {
+  if (transferPoller.has(taskId)) return;
+  transferPoller.set(taskId, setInterval(() => pollTransferTask(taskId), 500));
+}
+
+function stopPolling(taskId) {
+  const iv = transferPoller.get(taskId);
+  if (iv) {
+    clearInterval(iv);
+    transferPoller.delete(taskId);
+  }
+}
+
+async function startTransfer(type, payload) {
+  try {
+    const res = await fetch(`/api/transfer/${type}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.error || '启动传输失败');
+    renderTransferTask({
+      id: json.taskId,
+      type,
+      localPath: payload.localPath,
+      remotePath: payload.remotePath,
+      status: 'running',
+      percent: 0,
+      total: 0,
+      transferred: 0,
+      speed: 0,
+    });
+    startPolling(json.taskId);
+  } catch (err) {
+    showToast(err.message || '启动传输失败', 'error');
+  }
+}
+
+function attachTransferEvents() {
+  elements.uploadForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const localPath = elements.uploadLocalPath.value.trim();
+    const remotePath = elements.uploadRemotePath.value.trim();
+    if (!localPath || !remotePath) {
+      showToast('请填写本地路径与远程路径', 'error');
+      return;
+    }
+    startTransfer('upload', { localPath, remotePath, overwrite: elements.uploadOverwrite.checked });
+  });
+
+  elements.downloadForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const remotePath = elements.downloadRemotePath.value.trim();
+    const localPath = elements.downloadLocalPath.value.trim();
+    if (!remotePath || !localPath) {
+      showToast('请填写远程路径与本地路径', 'error');
+      return;
+    }
+    startTransfer('download', { localPath, remotePath, overwrite: elements.downloadOverwrite.checked });
+  });
+
+  elements.transferTasks.addEventListener('click', async (event) => {
+    const btn = event.target.closest('.btn-cancel-task');
+    if (!btn) return;
+    const taskId = btn.getAttribute('data-task-id');
+    try {
+      const res = await fetch(`/api/transfer/cancel/${taskId}`, { method: 'POST' });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || '取消失败');
+      showToast('已发送取消请求', 'info');
+      renderTransferTask(json.task);
+      await pollTransferTask(taskId);
+    } catch (err) {
+      showToast(err.message || '取消失败', 'error');
+    }
+  });
+}
+
+async function loadTransferTasks() {
+  try {
+    const res = await fetch('/api/transfer/tasks');
+    const json = await res.json();
+    if (!json.success) return;
+    json.tasks.forEach((task) => {
+      renderTransferTask(task);
+      if (task.status === 'running') startPolling(task.id);
+    });
+  } catch (err) {
+    // 服务端未启动或暂无任务，忽略
+  }
+}
+
+attachTransferEvents();
+loadTransferTasks();

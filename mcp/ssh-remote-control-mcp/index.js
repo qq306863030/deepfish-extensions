@@ -21,6 +21,17 @@ const PROJECT_ROOT = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 const HTTP_PORT = Number(process.env.SSH_REMOTE_CONTROL_PORT || 11889);
 
+// SSH_REMOTE_CONTROL_TIMEOUT：全局操作超时（毫秒），作用于命令执行、文件上传与下载。
+// 未设置或设置为 -1 时表示不限制超时（默认 -1）。
+const OP_TIMEOUT_MS = parseTimeoutEnv();
+
+function parseTimeoutEnv() {
+  const raw = process.env.SSH_REMOTE_CONTROL_TIMEOUT;
+  if (raw === undefined || raw === null || String(raw).trim() === '') return -1;
+  const value = Number(raw);
+  return Number.isNaN(value) ? -1 : value;
+}
+
 function log(message) {
   process.stderr.write(`${LOG_PREFIX} ${message}\n`);
 }
@@ -71,6 +82,18 @@ function safeConnection(conn) {
     password: conn.password ? decrypt(conn.password) : '',
     privateKey: conn.privateKey || '',
     passphrase: conn.passphrase || '',
+    content: conn.content || '',
+  };
+}
+
+// 公开信息序列化：不包含密码、私钥口令等敏感字段
+function safeConnectionPublic(conn) {
+  return {
+    name: conn.name || '',
+    host: conn.host || '',
+    port: conn.port || 22,
+    username: conn.username || '',
+    privateKey: conn.privateKey || '',
     content: conn.content || '',
   };
 }
@@ -263,26 +286,257 @@ async function runCommand(conn, command, cwd, timeoutMs) {
   });
 }
 
-async function uploadPath(conn, localPath, remotePath, options = {}) {
+function isMissingFileError(err) {
+  if (!err) return false;
+  const msg = String(err.message || err);
+  return err.code === 2 || /no such file|ENOENT|does not exist|not found/i.test(msg);
+}
+
+async function getRemoteFileSize(sftp, remotePath) {
+  try {
+    const st = await sftp.stat(remotePath);
+    return st.size;
+  } catch (err) {
+    if (isMissingFileError(err)) return 0;
+    throw err;
+  }
+}
+
+/**
+ * 文件传输核心：支持断点续传、实时进度、超时与取消。
+ * type: 'upload' | 'download'
+ * 断点续传：目标端已存在的部分文件大小作为 offset，从该位置继续传输。
+ * 进度回调：onProgress(transferred, total) 表示已传输字节 / 总字节。
+ */
+async function transferFile({ type, conn, localPath, remotePath, overwrite = false, onProgress, isCancelled, timeoutMs }) {
   const sftp = new SftpClient();
+  let timeoutHandle = null;
+  let rdr = null;
+  let wtr = null;
   try {
     await sftp.connect(buildSshConfig(conn));
-    await sftp.put(localPath, remotePath, options);
-    return { localPath, remotePath, uploaded: true };
+
+    let total = 0;
+    let offset = 0;
+    if (type === 'upload') {
+      if (!fs.existsSync(localPath)) throw new Error(`本地文件不存在：${localPath}`);
+      const st = fs.statSync(localPath);
+      if (st.isDirectory()) throw new Error('暂不支持上传目录，请指定文件路径');
+      total = st.size;
+      if (overwrite) {
+        try { await sftp.delete(remotePath); } catch (err) { if (!isMissingFileError(err)) throw err; }
+        offset = 0;
+      } else {
+        offset = await getRemoteFileSize(sftp, remotePath);
+        if (offset >= total) {
+          return { total, offset, transferred: total, resumed: offset > 0, skipped: true };
+        }
+      }
+    } else {
+      total = await getRemoteFileSize(sftp, remotePath);
+      if (total === 0) throw new Error(`远程文件不存在或为空：${remotePath}`);
+      if (overwrite && fs.existsSync(localPath)) fs.rmSync(localPath);
+      offset = fs.existsSync(localPath) ? fs.statSync(localPath).size : 0;
+      if (offset >= total) {
+        return { total, offset, transferred: total, resumed: offset > 0, skipped: true };
+      }
+    }
+
+    return await new Promise((resolve, reject) => {
+      if (timeoutMs !== null && timeoutMs > 0) {
+        timeoutHandle = setTimeout(() => {
+          if (rdr && !rdr.destroyed) rdr.destroy();
+          if (wtr && !wtr.destroyed) wtr.destroy();
+          reject(new Error(`文件${type === 'upload' ? '上传' : '下载'}超时（${timeoutMs} ms）`));
+        }, timeoutMs);
+      }
+
+      const readOpts = { start: offset, autoClose: true };
+      const writeOpts = { flags: offset > 0 ? 'a' : 'w', mode: 0o644, autoClose: true };
+      rdr = type === 'upload'
+        ? fs.createReadStream(localPath, readOpts)
+        : sftp.createReadStream(remotePath, readOpts);
+      wtr = type === 'upload'
+        ? sftp.createWriteStream(remotePath, writeOpts)
+        : fs.createWriteStream(localPath, writeOpts);
+
+      let transferred = 0;
+      rdr.on('data', (chunk) => {
+        if (isCancelled && isCancelled()) {
+          if (rdr && !rdr.destroyed) rdr.destroy();
+          if (wtr && !wtr.destroyed) wtr.destroy();
+          reject(new Error('任务已取消'));
+          return;
+        }
+        transferred += chunk.length;
+        if (onProgress) onProgress(offset + transferred, total);
+      });
+      rdr.on('error', reject);
+      wtr.on('error', reject);
+      wtr.once('close', () => {
+        if (timeoutHandle) clearTimeout(timeoutHandle);
+        resolve({ total, offset, transferred: total, resumed: offset > 0, skipped: false });
+      });
+      rdr.pipe(wtr);
+    });
   } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
     await sftp.end().catch(() => undefined);
   }
 }
 
-async function downloadPath(conn, remotePath, localPath, options = {}) {
-  const sftp = new SftpClient();
-  try {
-    await sftp.connect(buildSshConfig(conn));
-    await sftp.get(remotePath, localPath, options);
-    return { remotePath, localPath, downloaded: true };
-  } finally {
-    await sftp.end().catch(() => undefined);
+// ---------- 传输任务管理（Web 页面实时进度） ----------
+let transferSeq = 0;
+const transferTasks = new Map();
+const MAX_TRANSFER_TASKS = 50;
+
+function nextTransferId() {
+  transferSeq += 1;
+  return `task-${Date.now()}-${transferSeq}`;
+}
+
+function serializeTask(task) {
+  return {
+    id: task.id,
+    type: task.type,
+    connName: task.connName,
+    localPath: task.localPath,
+    remotePath: task.remotePath,
+    status: task.status,
+    total: task.total,
+    transferred: task.transferred,
+    offset: task.offset,
+    percent: task.percent,
+    speed: task.speed,
+    message: task.message,
+    error: task.error,
+    startedAt: task.startedAt,
+    updatedAt: task.updatedAt,
+    finishedAt: task.finishedAt,
+  };
+}
+
+function createTransferTask(type, conn, localPath, remotePath, overwrite) {
+  const id = nextTransferId();
+  const task = {
+    id,
+    type,
+    connName: conn.name || '',
+    localPath,
+    remotePath,
+    overwrite: !!overwrite,
+    status: 'running',
+    total: 0,
+    transferred: 0,
+    offset: 0,
+    percent: 0,
+    speed: 0,
+    message: '',
+    error: '',
+    startedAt: Date.now(),
+    updatedAt: Date.now(),
+    finishedAt: 0,
+    cancelled: false,
+    _lastSampleAt: 0,
+    _lastTransferred: 0,
+  };
+  transferTasks.set(id, task);
+
+  const run = async () => {
+    let lastEmit = 0;
+    const result = await transferFile({
+      type,
+      conn,
+      localPath,
+      remotePath,
+      overwrite: !!overwrite,
+      timeoutMs: OP_TIMEOUT_MS,
+      isCancelled: () => task.cancelled,
+      onProgress: (transferred, total) => {
+        task.total = total;
+        task.transferred = transferred;
+        task.percent = total > 0 ? Math.min(100, Math.round((transferred / total) * 1000) / 10) : 0;
+        const now = Date.now();
+        if (now - lastEmit >= 200) {
+          lastEmit = now;
+          task.updatedAt = now;
+          if (task._lastSampleAt > 0) {
+            const dt = now - task._lastSampleAt;
+            if (dt > 0) task.speed = Math.round(((transferred - task._lastTransferred) * 1000) / dt);
+          }
+          task._lastSampleAt = now;
+          task._lastTransferred = transferred;
+        }
+      },
+    });
+    task.status = 'done';
+    task.offset = result.offset;
+    task.total = result.total;
+    task.transferred = result.transferred;
+    task.percent = 100;
+    task.speed = 0;
+    task.finishedAt = Date.now();
+    task.updatedAt = task.finishedAt;
+    task.message = result.skipped
+      ? '目标文件已完整，无需续传'
+      : result.resumed
+        ? '断点续传完成'
+        : '传输完成';
+    return result;
+  };
+
+  run().catch((err) => {
+    task.status = task.cancelled ? 'cancelled' : 'error';
+    task.error = err.message || String(err);
+    task.speed = 0;
+    task.finishedAt = Date.now();
+    task.updatedAt = task.finishedAt;
+    task.message = task.cancelled ? '已取消' : '传输失败';
+  });
+
+  // 清理最早完成的旧任务，避免内存无限增长
+  if (transferTasks.size > MAX_TRANSFER_TASKS) {
+    const finished = [...transferTasks.values()]
+      .filter((t) => t.status !== 'running')
+      .sort((a, b) => (a.finishedAt || 0) - (b.finishedAt || 0));
+    while (transferTasks.size > MAX_TRANSFER_TASKS && finished.length) {
+      const old = finished.shift();
+      transferTasks.delete(old.id);
+    }
   }
+
+  return id;
+}
+
+function cancelTransferTask(id) {
+  const task = transferTasks.get(id);
+  if (!task) throw new Error(`任务 ${id} 不存在`);
+  if (task.status === 'running') task.cancelled = true;
+  return task;
+}
+
+async function uploadPath(conn, localPath, remotePath, options = {}) {
+  const result = await transferFile({
+    type: 'upload',
+    conn,
+    localPath,
+    remotePath,
+    overwrite: !!options.overwrite,
+    timeoutMs: OP_TIMEOUT_MS,
+  });
+  return { localPath, remotePath, uploaded: true, ...result };
+}
+
+async function downloadPath(conn, remotePath, localPath, options = {}) {
+  const result = await transferFile({
+    type: 'download',
+    conn,
+    remotePath,
+    localPath,
+    overwrite: !!options.overwrite,
+    timeoutMs: OP_TIMEOUT_MS,
+  });
+  return { remotePath, localPath, downloaded: true, ...result };
 }
 
 function createHttpApp() {
@@ -412,6 +666,65 @@ function createHttpApp() {
     }
   });
 
+  // ---------- 文件传输 API（实时进度 + 断点续传） ----------
+
+  function parseTransferBody(body) {
+    const localPath = body && typeof body.localPath === 'string' ? body.localPath.trim() : '';
+    const remotePath = body && typeof body.remotePath === 'string' ? body.remotePath.trim() : '';
+    if (!localPath || !remotePath) {
+      throw new Error('localPath 与 remotePath 均为必填项');
+    }
+    return { localPath, remotePath, overwrite: !!(body && body.overwrite) };
+  }
+
+  app.post('/api/transfer/upload', (req, res) => {
+    try {
+      const config = readConfig();
+      const conn = getCurrentConnection(config);
+      const { localPath, remotePath, overwrite } = parseTransferBody(req.body);
+      const taskId = createTransferTask('upload', conn, localPath, remotePath, overwrite);
+      res.json({ success: true, taskId });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  app.post('/api/transfer/download', (req, res) => {
+    try {
+      const config = readConfig();
+      const conn = getCurrentConnection(config);
+      const { localPath, remotePath, overwrite } = parseTransferBody(req.body);
+      const taskId = createTransferTask('download', conn, localPath, remotePath, overwrite);
+      res.json({ success: true, taskId });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
+  app.get('/api/transfer/tasks', (_req, res) => {
+    const tasks = [...transferTasks.values()]
+      .map(serializeTask)
+      .sort((a, b) => b.startedAt - a.startedAt);
+    res.json({ success: true, tasks });
+  });
+
+  app.get('/api/transfer/tasks/:id', (req, res) => {
+    const task = transferTasks.get(req.params.id);
+    if (!task) {
+      return res.status(404).json({ success: false, error: `任务 ${req.params.id} 不存在` });
+    }
+    res.json({ success: true, task: serializeTask(task) });
+  });
+
+  app.post('/api/transfer/cancel/:id', (req, res) => {
+    try {
+      const task = cancelTransferTask(req.params.id);
+      res.json({ success: true, task: serializeTask(task) });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  });
+
   return app;
 }
 
@@ -459,11 +772,11 @@ function buildServer() {
 
   server.registerTool('listConnections', {
     title: '列出所有已保存的 SSH 远程连接',
-    description: '列出所有已保存的 SSH 远程连接配置，包括连接别名、主机地址、端口、登录账号、备注内容以及当前激活的连接。用于查看当前已配置了哪些远程服务器，以及当前正在使用哪一台服务器。',
+    description: '列出所有已保存的 SSH 远程连接配置，包括连接别名、主机地址、端口、登录账号、备注内容以及当前激活的连接。出于安全考虑，不会返回密码、私钥口令等敏感信息。用于查看当前已配置了哪些远程服务器，以及当前正在使用哪一台服务器。',
     inputSchema: z.object({}).strict(),
   }, async () => {
     const config = readConfig();
-    const list = config.list.map(safeConnection);
+    const list = config.list.map(safeConnectionPublic);
     return {
       content: [{ type: 'text', text: JSON.stringify({ success: true, data: { curSSH: config.curSSH, list }, configPath: CONFIG_FILE }, null, 2) }],
       structuredContent: { success: true, data: { curSSH: config.curSSH, list, configPath: CONFIG_FILE } },
@@ -606,6 +919,17 @@ function buildServer() {
     };
   });
 
+  server.registerTool('getConfigFilePath', {
+    title: '获取 SSH 连接配置文件路径',
+    description: '返回当前 SSH 连接配置文件的实际存储路径（getConfigPath 的别名）。所有连接配置（连接别名、主机、账号、加密后的密码、私钥路径、备注等）都保存在该 JSON 文件中。',
+    inputSchema: z.object({}).strict(),
+  }, async () => {
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ success: true, data: { configPath: CONFIG_FILE } }, null, 2) }],
+      structuredContent: { success: true, data: { configPath: CONFIG_FILE } },
+    };
+  });
+
   server.registerTool('testConnection', {
     title: '测试当前 SSH 连接是否可认证',
     description: '测试当前活动连接的 SSH 认证是否可用。会尝试建立 SSH 连接并验证用户名、密码或私钥是否正确。认证失败时会自动诊断并提示可能的原因（认证失败、无法解析主机、连接被拒绝、连接超时等）。',
@@ -622,7 +946,7 @@ function buildServer() {
 
   server.registerTool('execCommand', {
     title: '在远程服务器上执行 shell 命令',
-    description: '通过 SSH 在当前活动连接对应的远程服务器上执行 shell 命令，并返回标准输出、标准错误、退出码和退出信号。参数说明：command 要执行的命令；cwd 可选，指定远程工作目录（会先 cd 到该目录再执行）；timeout 可选，命令执行超时时间（毫秒），默认不超时。',
+    description: '通过 SSH 在当前活动连接对应的远程服务器上执行 shell 命令，并返回标准输出、标准错误、退出码和退出信号。参数说明：command 要执行的命令；cwd 可选，指定远程工作目录（会先 cd 到该目录再执行）；timeout 可选，命令执行超时时间（毫秒），未指定时使用环境变量 SSH_REMOTE_CONTROL_TIMEOUT（默认不超时）。',
     inputSchema: z.object({
       command: z.string().min(1),
       cwd: z.string().optional(),
@@ -631,7 +955,7 @@ function buildServer() {
   }, async (args) => {
     const config = readConfig();
     const current = getCurrentConnection(config);
-    const result = await runCommand(current, args.command, args.cwd, args.timeout);
+    const result = await runCommand(current, args.command, args.cwd, args.timeout ?? OP_TIMEOUT_MS);
     return {
       content: [{ type: 'text', text: JSON.stringify({ success: true, data: result }, null, 2) }],
       structuredContent: { success: true, data: result },
@@ -639,8 +963,8 @@ function buildServer() {
   });
 
   server.registerTool('uploadPath', {
-    title: '上传本地文件或目录到远程服务器',
-    description: '通过 SFTP 将本地文件或目录上传到当前活动连接对应的远程服务器。参数说明：localPath 本地文件或目录的绝对路径；remotePath 远程目标路径；overwrite 可选，是否覆盖已存在的文件。',
+    title: '上传本地文件到远程服务器',
+    description: '通过 SFTP 将本地文件上传到当前活动连接对应的远程服务器，支持断点续传（远程已存在部分文件时自动从断点继续）与实时进度统计。参数说明：localPath 本地文件的绝对路径；remotePath 远程目标路径；overwrite 可选，是否覆盖远程已存在的文件（设为 true 时从头传输，否则自动断点续传）。上传耗时受环境变量 SSH_REMOTE_CONTROL_TIMEOUT（毫秒）约束，设置为 -1 时不限制。返回结果包含 total（总字节）、transferred（已传输字节）、resumedFrom（续传起始偏移）、resumed（是否续传）、durationMs（耗时）、speedBytesPerSec（平均速度）。',
     inputSchema: z.object({
       localPath: z.string().min(1),
       remotePath: z.string().min(1),
@@ -649,16 +973,23 @@ function buildServer() {
   }, async (args) => {
     const config = readConfig();
     const current = getCurrentConnection(config);
+    const startedAt = Date.now();
     const result = await uploadPath(current, args.localPath, args.remotePath, { overwrite: args.overwrite });
+    const durationMs = Date.now() - startedAt;
+    const data = {
+      ...result,
+      durationMs,
+      speedBytesPerSec: durationMs > 0 ? Math.round((result.transferred || 0) * 1000 / durationMs) : 0,
+    };
     return {
-      content: [{ type: 'text', text: JSON.stringify({ success: true, data: result }, null, 2) }],
-      structuredContent: { success: true, data: result },
+      content: [{ type: 'text', text: JSON.stringify({ success: true, data }, null, 2) }],
+      structuredContent: { success: true, data },
     };
   });
 
   server.registerTool('downloadPath', {
-    title: '从远程服务器下载文件或目录',
-    description: '通过 SFTP 将远程服务器上的文件或目录下载到本地。参数说明：remotePath 远程文件或目录的绝对路径；localPath 本地保存路径；overwrite 可选，是否覆盖已存在的本地文件。',
+    title: '从远程服务器下载文件到本地',
+    description: '通过 SFTP 将远程服务器上的文件下载到本地，支持断点续传（本地已存在部分文件时自动从断点继续）与实时进度统计。参数说明：remotePath 远程文件的绝对路径；localPath 本地保存路径；overwrite 可选，是否覆盖本地已存在的文件（设为 true 时从头传输，否则自动断点续传）。下载耗时受环境变量 SSH_REMOTE_CONTROL_TIMEOUT（毫秒）约束，设置为 -1 时不限制。返回结果包含 total（总字节）、transferred（已传输字节）、resumedFrom（续传起始偏移）、resumed（是否续传）、durationMs（耗时）、speedBytesPerSec（平均速度）。',
     inputSchema: z.object({
       remotePath: z.string().min(1),
       localPath: z.string().min(1),
@@ -667,10 +998,17 @@ function buildServer() {
   }, async (args) => {
     const config = readConfig();
     const current = getCurrentConnection(config);
+    const startedAt = Date.now();
     const result = await downloadPath(current, args.remotePath, args.localPath, { overwrite: args.overwrite });
+    const durationMs = Date.now() - startedAt;
+    const data = {
+      ...result,
+      durationMs,
+      speedBytesPerSec: durationMs > 0 ? Math.round((result.transferred || 0) * 1000 / durationMs) : 0,
+    };
     return {
-      content: [{ type: 'text', text: JSON.stringify({ success: true, data: result }, null, 2) }],
-      structuredContent: { success: true, data: result },
+      content: [{ type: 'text', text: JSON.stringify({ success: true, data }, null, 2) }],
+      structuredContent: { success: true, data },
     };
   });
 
