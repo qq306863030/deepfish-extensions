@@ -106,6 +106,129 @@ function safeConnectionSummary(conn) {
   };
 }
 
+// ---------- 连接备注（content）结构化读写 ----------
+// content 以 Markdown 存放，约定三个小节：
+//   ## 项目目录      - 路径：说明
+//   ## Docker 容器   - 容器名：说明
+//   ## 其他说明      - 自由文本
+// 小节之外（标题之前）的内容视为服务器简介，未知小节原样保留。
+const CONTENT_SECTION_TITLES = {
+  projects: '项目目录',
+  containers: 'Docker 容器',
+  notes: '其他说明',
+};
+
+function normalizeProjectKey(key) {
+  return String(key || '').trim().replace(/[\\/]+$/, '');
+}
+
+function splitEntryBody(body) {
+  const fullIdx = body.indexOf('：');
+  const halfMatch = /:\s/.exec(body);
+  const halfIdx = halfMatch ? halfMatch.index : -1;
+  let idx = -1;
+  if (fullIdx !== -1 && halfIdx !== -1) idx = Math.min(fullIdx, halfIdx);
+  else idx = Math.max(fullIdx, halfIdx);
+  if (idx === -1) return { key: body.trim(), description: '' };
+  return { key: body.slice(0, idx).trim(), description: body.slice(idx + 1).trim() };
+}
+
+function parseContentEntry(line) {
+  const matched = /^\s*[-*]\s+(\S.*)$/.exec(line);
+  if (!matched) return null;
+  return splitEntryBody(matched[1]);
+}
+
+function parseContentSections(content) {
+  const sections = { summary: '', projects: [], containers: [], notes: [], other: [] };
+  if (!content) return sections;
+
+  const summaryLines = [];
+  let current = 'summary';
+  for (const rawLine of String(content).split(/\r?\n/)) {
+    const line = rawLine.replace(/\s+$/, '');
+    const heading = /^#{1,6}\s+(.*\S)\s*$/.exec(line);
+    if (heading) {
+      const title = heading[1].trim();
+      const matchedKey = Object.keys(CONTENT_SECTION_TITLES)
+        .find((key) => CONTENT_SECTION_TITLES[key] === title);
+      if (matchedKey) {
+        current = matchedKey;
+      } else {
+        current = 'other';
+        sections.other.push(line);
+      }
+      continue;
+    }
+    if (current === 'summary') {
+      summaryLines.push(line);
+      continue;
+    }
+    if (current === 'other') {
+      sections.other.push(line);
+      continue;
+    }
+    if (!line.trim()) continue;
+    if (current === 'notes') {
+      sections.notes.push(line.trim());
+      continue;
+    }
+    const entry = parseContentEntry(line);
+    if (entry) sections[current].push(entry);
+    else sections.notes.push(line.trim());
+  }
+  sections.summary = summaryLines.join('\n').trim();
+  return sections;
+}
+
+function formatContentEntry(entry) {
+  const key = String(entry.key || '').trim();
+  if (!key) return '';
+  const description = String(entry.description || '').trim();
+  return description ? `- ${key}：${description}` : `- ${key}`;
+}
+
+function mergeContentEntries(existing, incoming, { replace = false, normalizeKey } = {}) {
+  if (replace) return incoming.slice();
+  const result = existing.slice();
+  for (const item of incoming) {
+    const index = result.findIndex((entry) => (normalizeKey ? normalizeKey(entry.key) : entry.key) === (normalizeKey ? normalizeKey(item.key) : item.key));
+    if (index === -1) {
+      result.push(item);
+    } else {
+      result[index] = {
+        key: item.key || result[index].key,
+        description: item.description || result[index].description,
+      };
+    }
+  }
+  return result;
+}
+
+function renderContentSections(sections) {
+  const blocks = [];
+  if (sections.summary) blocks.push(sections.summary);
+
+  for (const key of ['projects', 'containers']) {
+    if (!sections[key] || !sections[key].length) continue;
+    blocks.push(`## ${CONTENT_SECTION_TITLES[key]}`);
+    for (const entry of sections[key]) {
+      const line = formatContentEntry(entry);
+      if (line) blocks.push(line);
+    }
+  }
+
+  if (sections.notes && sections.notes.length) {
+    blocks.push(`## ${CONTENT_SECTION_TITLES.notes}`);
+    blocks.push(...sections.notes);
+  }
+  if (sections.other && sections.other.length) {
+    blocks.push(...sections.other);
+  }
+
+  return blocks.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 function buildStatusPayload(config) {
   const currentConnection = config.curSSH
     ? config.list.find((item) => item.name === config.curSSH) || null
@@ -764,10 +887,78 @@ function openBrowserUrl(url) {
   });
 }
 
+function buildUsageGuide() {
+  return `# SSH Remote Control MCP 使用规则
+
+## 一、任务执行顺序（每次操作远程服务器都必须按此顺序）
+
+1. **任务前：先读取服务器备注**
+   调用 \`getConnectionContent\`（不传 name 读当前连接，传 name 读指定服务器），了解这台机器上已有的
+   项目目录、Docker 容器、注意事项（重启窗口、部署方式、禁用操作等）。
+   未读备注就直接操作属于违规，容易误改目录、误停容器。
+
+2. **执行任务：执行 shell 命令或传输文件**
+   - \`execCommand\`：在远程服务器执行命令，尽量带 \`cwd\` 指向备注中记录的项目目录；
+     先执行只读命令（ls / docker ps / cat / systemctl status 等）确认现状，再执行变更命令。
+   - \`uploadPath\` / \`downloadPath\`：需要传文件时再使用，支持断点续传与实时进度。
+
+3. **任务后：更新服务器备注**
+   调用 \`setConnectionContent\` 把本次产生的新信息写回备注（新增的项目目录、新建/变更的 Docker 容器、
+   新的注意事项等）。该工具会先读取已有内容再按条目合并，**禁止用 replace 覆盖**，
+   也不要写入密码、密钥、Token 等敏感信息与冗长配置。
+
+## 二、准备阶段（连接尚未就绪时）
+
+1. \`listConnections\`：查看已保存的服务器与当前活动连接。
+2. \`setCurrentConnection\`：目标服务器不是当前连接时先切换。
+3. \`testConnection\`：连通性存疑时先测试认证。
+4. 没有连接时：\`addConnection\` / \`openManager\` 打开 Web 管理页面添加。
+
+## 三、工具清单
+
+| 工具 | 用途 |
+|---|---|
+| \`getUsageRules\` | 获取本 MCP 的使用规则与任务执行顺序（本说明） |
+| \`listConnections\` | 列出所有已保存的 SSH 连接及当前活动连接 |
+| \`addConnection\` | 新增连接，并打开 Web 管理页面 |
+| \`setCurrentConnection\` | 切换当前活动连接 |
+| \`deleteConnection\` | 删除已保存的连接 |
+| \`getConnectionContent\` | 读取服务器备注（项目目录 / Docker 容器 / 说明） |
+| \`setConnectionContent\` | 追加或更新服务器备注（先读后合并，不覆盖） |
+| \`testConnection\` | 测试当前连接能否认证 |
+| \`execCommand\` | 在远程服务器执行 shell 命令 |
+| \`uploadPath\` | 上传本地文件到远程服务器（断点续传） |
+| \`downloadPath\` | 从远程服务器下载文件（断点续传） |
+| \`openManager\` | 打开 Web 管理页面 |
+| \`getConfigPath\` | 查看连接配置文件路径 |
+
+## 四、规则与注意事项
+
+- 严格遵守「读备注 → 执行 → 更新备注」三步，任务前后备注应保持一致。
+- 变更类命令（rm / kill / docker rm / 覆盖配置等）执行前必须先确认目标，优先使用只读命令核对。
+- 备注只记录"位置 + 用途"这类简洁信息：路径、容器名、端口用途、维护窗口；不记录账号密码、私钥、Token。
+- \`setConnectionContent\` 默认 \`append\` 模式；仅当明确需要重写某个小节时才用 \`replace\`。
+- 一次任务结束后若发现备注过时（目录已迁移、容器已下线），同样用 \`setConnectionContent\` 修正。
+- 配置文件路径：${CONFIG_FILE}
+`;
+}
+
 function buildServer() {
   const server = new McpServer({
     name: 'ssh-remote-control-mcp',
     version: '1.0.0',
+  });
+
+  server.registerTool('getUsageRules', {
+    title: '获取本 MCP 的使用规则与说明',
+    description: '获取 SSH Remote Control MCP 的完整使用规则、工具清单与任务执行顺序说明。当用户说“怎么用”“使用说明”“使用规则”“操作规范”“怎么操作远程服务器”“有哪些工具”等需要了解本 MCP 的用法时，应调用本工具；在开始一项远程服务器任务前，若不清楚流程也应先调用本工具。核心流程：任务前先用 getConnectionContent 读取服务器备注 → 再用 execCommand 执行 shell 命令（配合 uploadPath / downloadPath 传文件）→ 任务后用 setConnectionContent 追加/更新备注，严禁跳过读取直接操作，也严禁覆盖式写入备注。',
+    inputSchema: z.object({}).strict(),
+  }, async () => {
+    const guide = buildUsageGuide();
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ success: true, data: { guide } }, null, 2) }],
+      structuredContent: { success: true, data: { guide } },
+    };
   });
 
   server.registerTool('listConnections', {
@@ -889,6 +1080,85 @@ function buildServer() {
     return {
       content: [{ type: 'text', text: JSON.stringify({ success: true, data: safeConnectionSummary(target) }, null, 2) }],
       structuredContent: { success: true, data: safeConnectionSummary(target) },
+    };
+  });
+
+  server.registerTool('setConnectionContent', {
+    title: '追加或更新服务器备注信息',
+    description: '把某台服务器的环境信息写入（追加 / 更新）到该连接的备注中，供后续会话快速了解这台机器。调用前会先读取已有备注，再按条目合并，不会直接覆盖：项目目录按路径去重、Docker 容器按容器名去重，已存在则更新说明，不存在则追加；未提供的部分原样保留。参数说明：name 可选，连接别名，不传则使用当前活动连接；description 可选，服务器一句话简介（会替换原有简介）；projects 可选，项目目录列表 [{path, description}]，只写路径与用途，不要写账号密码等具体配置；containers 可选，Docker 容器列表 [{name, description}]，只写容器名与用途；notes 可选，其他说明条目数组（字符串数组，重复的条目会被忽略）；mode 可选，append（默认，追加合并）或 replace（用本次传入内容整体重写对应小节，仅在确认需要重写时使用）。内容请保持简洁，不要包含密码、密钥、Token 等敏感信息与冗长配置。',
+    inputSchema: z.object({
+      name: z.string().optional(),
+      description: z.string().optional(),
+      projects: z.array(z.object({
+        path: z.string().min(1),
+        description: z.string().optional(),
+      })).optional(),
+      containers: z.array(z.object({
+        name: z.string().min(1),
+        description: z.string().optional(),
+      })).optional(),
+      notes: z.array(z.string().min(1)).optional(),
+      mode: z.enum(['append', 'replace']).optional(),
+    }),
+  }, async (args) => {
+    const config = readConfig();
+    const name = args.name?.trim();
+    const target = name
+      ? config.list.find((item) => item.name === name)
+      : config.list.find((item) => item.name === config.curSSH);
+    if (!target) {
+      throw new Error(name ? `未找到别名为 "${name}" 的连接配置` : '未设置当前连接，请先切换或指定 name');
+    }
+
+    const mode = args.mode === 'replace' ? 'replace' : 'append';
+    const previousContent = target.content || '';
+    const sections = parseContentSections(previousContent);
+
+    if (typeof args.description === 'string') {
+      sections.summary = args.description.trim();
+    }
+    if (args.projects) {
+      sections.projects = mergeContentEntries(
+        sections.projects,
+        args.projects
+          .filter((item) => item && item.path)
+          .map((item) => ({ key: String(item.path).trim(), description: item.description ? String(item.description).trim() : '' })),
+        { replace: mode === 'replace', normalizeKey: normalizeProjectKey },
+      );
+    }
+    if (args.containers) {
+      sections.containers = mergeContentEntries(
+        sections.containers,
+        args.containers
+          .filter((item) => item && item.name)
+          .map((item) => ({ key: String(item.name).trim(), description: item.description ? String(item.description).trim() : '' })),
+        { replace: mode === 'replace' },
+      );
+    }
+    if (args.notes) {
+      const incoming = args.notes.map((item) => String(item).trim()).filter(Boolean);
+      sections.notes = mode === 'replace'
+        ? incoming
+        : [...sections.notes, ...incoming.filter((item) => !sections.notes.includes(item))];
+    }
+
+    const nextContent = renderContentSections(sections);
+    target.content = nextContent;
+    writeConfig(config);
+
+    const data = {
+      name: target.name,
+      mode,
+      updated: nextContent !== previousContent,
+      projects: sections.projects.length,
+      containers: sections.containers.length,
+      notes: sections.notes.length,
+      previousContent,
+      content: nextContent,
+    };
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ success: true, data }, null, 2) }],
+      structuredContent: { success: true, data },
     };
   });
 

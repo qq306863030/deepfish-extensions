@@ -68,16 +68,29 @@ try {
   const tools = await request(child, 'tools/list', {});
   const names = tools.tools.map((tool) => tool.name);
   assert(names.includes('listConnections'), 'tools/list should include listConnections');
+  assert(names.includes('getUsageRules'), 'tools/list should include getUsageRules');
   assert(names.includes('addConnection'), 'tools/list should include addConnection');
   assert(names.includes('deleteConnection'), 'tools/list should include deleteConnection');
   assert(names.includes('setCurrentConnection'), 'tools/list should include setCurrentConnection');
   assert(names.includes('getConnectionContent'), 'tools/list should include getConnectionContent');
+  assert(names.includes('setConnectionContent'), 'tools/list should include setConnectionContent');
   assert(names.includes('openManager'), 'tools/list should include openManager');
   assert(names.includes('getConfigPath'), 'tools/list should include getConfigPath');
   assert(names.includes('testConnection'), 'tools/list should include testConnection');
   assert(names.includes('execCommand'), 'tools/list should include execCommand');
   assert(names.includes('uploadPath'), 'tools/list should include uploadPath');
   assert(names.includes('downloadPath'), 'tools/list should include downloadPath');
+
+  const usageResult = await request(child, 'tools/call', {
+    name: 'getUsageRules',
+    arguments: {},
+  });
+  const usageGuide = usageResult.structuredContent.data.guide;
+  assert(usageGuide.includes('getConnectionContent'), 'getUsageRules should describe getConnectionContent');
+  assert(usageGuide.includes('execCommand'), 'getUsageRules should describe execCommand');
+  assert(usageGuide.includes('setConnectionContent'), 'getUsageRules should describe setConnectionContent');
+  assert(usageGuide.includes('任务前'), 'getUsageRules should describe the pre-task step');
+  assert(usageGuide.includes('任务后'), 'getUsageRules should describe the post-task step');
 
   const addResult = await request(child, 'tools/call', {
     name: 'addConnection',
@@ -110,6 +123,44 @@ try {
   });
   const contentText = contentResult.content[0].text;
   assert(contentText.includes('demo connection'), 'getConnectionContent should return the saved content/notes');
+
+  // setConnectionContent should merge server info into the notes instead of overwriting them
+  const setContent = await request(child, 'tools/call', {
+    name: 'setConnectionContent',
+    arguments: {
+      description: '示例服务器',
+      projects: [{ path: '/srv/app', description: '主站项目' }],
+      containers: [{ name: 'nginx', description: '网关容器' }],
+      notes: ['每周一凌晨重启'],
+    },
+  });
+  assert(setContent.isError !== true, 'setConnectionContent should succeed');
+  const setData = setContent.structuredContent.data;
+  assert(setData.previousContent.includes('demo connection'), 'setConnectionContent should report the previous content');
+  assert(setData.content.includes('## 项目目录') && setData.content.includes('/srv/app'), 'setConnectionContent should append the project section');
+  assert(setData.content.includes('## Docker 容器') && setData.content.includes('nginx'), 'setConnectionContent should append the container section');
+  assert(setData.content.includes('每周一凌晨重启'), 'setConnectionContent should append free notes');
+
+  // calling again with an existing entry updates it instead of duplicating it
+  const setContentAgain = await request(child, 'tools/call', {
+    name: 'setConnectionContent',
+    arguments: {
+      projects: [{ path: '/srv/app', description: '主站项目（已迁移）' }, { path: '/srv/api', description: '接口服务' }],
+    },
+  });
+  const merged = setContentAgain.structuredContent.data.content;
+  const appLines = merged.split('\n').filter((line) => line.includes('/srv/app'));
+  assert(appLines.length === 1, 'setConnectionContent should not duplicate an existing project entry');
+  assert(merged.includes('主站项目（已迁移）'), 'setConnectionContent should update the description of an existing entry');
+  assert(merged.includes('/srv/api'), 'setConnectionContent should append new entries');
+  assert(merged.includes('nginx') && merged.includes('每周一凌晨重启'), 'setConnectionContent should keep untouched sections');
+  assert(merged.includes('示例服务器'), 'setConnectionContent should keep the server summary');
+
+  const contentAfterSet = await request(child, 'tools/call', {
+    name: 'getConnectionContent',
+    arguments: {},
+  });
+  assert(contentAfterSet.content[0].text.includes('/srv/app'), 'getConnectionContent should return the updated content');
 
   // deleteConnection should remove the entry and clear the current connection
   const deleteResult = await request(child, 'tools/call', {
