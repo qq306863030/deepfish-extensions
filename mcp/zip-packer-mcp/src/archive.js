@@ -25,19 +25,32 @@ function getTimestamp() {
  * @param {Object} [options]
  * @param {string[]} [options.excludes]
  * @param {string} [options.selfExcludeRelativePath]
+ * @param {boolean} [options.skipStat]
+ * @param {number} [options.maxFiles]
  * @returns {Promise<Array<{ relativePath: string, fullPath: string, size: number }>>}
  */
-export async function scanDirectory(rootDir, { excludes = [], selfExcludeRelativePath = null } = {}) {
+export async function scanDirectory(rootDir, { excludes = [], selfExcludeRelativePath = null, skipStat = false, maxFiles = Infinity } = {}) {
   const results = [];
   const prunedDirectories = [];
   const visitedRealPaths = new Set();
   const shouldPrune = createDirectoryPruner(excludes);
   const selfExcludePosix = selfExcludeRelativePath ? toPosix(selfExcludeRelativePath) : null;
+  let isTruncated = false;
 
   async function walk(currentDir, relativePrefix = '') {
+    if (results.length >= maxFiles) {
+      isTruncated = true;
+      return;
+    }
+
     const entries = await fs.promises.readdir(currentDir, { withFileTypes: true }).catch(() => []);
 
     for (const entry of entries) {
+      if (results.length >= maxFiles) {
+        isTruncated = true;
+        break;
+      }
+
       const fullPath = path.join(currentDir, entry.name);
       const relPath = relativePrefix ? path.join(relativePrefix, entry.name) : entry.name;
       const relPosix = toPosix(relPath);
@@ -56,14 +69,21 @@ export async function scanDirectory(rootDir, { excludes = [], selfExcludeRelativ
           }
           await walk(fullPath, relPath);
         } else if (entry.isFile()) {
-          // Avoid extra stat if possible or get file size
-          const stat = await fs.promises.stat(fullPath).catch(() => null);
-          if (stat) {
+          if (skipStat) {
             results.push({
               relativePath: relPosix,
               fullPath,
-              size: stat.size
+              size: 0
             });
+          } else {
+            const stat = await fs.promises.stat(fullPath).catch(() => null);
+            if (stat) {
+              results.push({
+                relativePath: relPosix,
+                fullPath,
+                size: stat.size
+              });
+            }
           }
         } else if (entry.isSymbolicLink()) {
           const realTarget = await fs.promises.realpath(fullPath).catch(() => null);
@@ -84,7 +104,7 @@ export async function scanDirectory(rootDir, { excludes = [], selfExcludeRelativ
               results.push({
                 relativePath: relPosix,
                 fullPath,
-                size: stat.size
+                size: skipStat ? 0 : stat.size
               });
             }
           }
@@ -97,6 +117,7 @@ export async function scanDirectory(rootDir, { excludes = [], selfExcludeRelativ
 
   await walk(rootDir, '');
   results.prunedDirectories = prunedDirectories;
+  results.isTruncated = isTruncated;
   return results;
 }
 
@@ -164,21 +185,33 @@ export async function resolveOutputPath(sourceDir, userOutputPath, overwrite = f
 /**
  * Preview files that would be included and excluded without creating the archive.
  */
-export async function previewZipContents({ sourcePath, includes = [], excludes = [], maxPreviewItems = 100 }) {
+export async function previewZipContents({
+  sourcePath,
+  includes = [],
+  excludes = [],
+  maxPreviewItems = 100,
+  maxScanFiles = 50000,
+  calculateSize = true
+}) {
   const absSource = path.resolve(sourcePath);
   const stat = await fs.promises.stat(absSource).catch(() => null);
   if (!stat || !stat.isDirectory()) {
     throw new Error(`Source path "${sourcePath}" does not exist or is not a directory.`);
   }
 
-  const allFiles = await scanDirectory(absSource, { excludes });
+  const allFiles = await scanDirectory(absSource, {
+    excludes,
+    skipStat: !calculateSize,
+    maxFiles: maxScanFiles
+  });
+
   const { selectedFiles, excludedFiles } = filterFileList(allFiles, {
     includes,
     excludes
   });
 
   const prunedDirs = allFiles.prunedDirectories || [];
-  const totalUncompressedSize = selectedFiles.reduce((acc, f) => acc + f.size, 0);
+  const totalUncompressedSize = calculateSize ? selectedFiles.reduce((acc, f) => acc + f.size, 0) : null;
 
   return {
     sourcePath: absSource,
@@ -187,15 +220,19 @@ export async function previewZipContents({ sourcePath, includes = [], excludes =
     excludedFilesCount: excludedFiles.length,
     excludedDirectoriesCount: prunedDirs.length,
     excludedDirectoriesSample: prunedDirs.slice(0, 20),
-    estimatedUncompressedSizeBytes: totalUncompressedSize,
+    ...(calculateSize ? { estimatedUncompressedSizeBytes: totalUncompressedSize } : {}),
+    ...(allFiles.isTruncated ? {
+      isTruncated: true,
+      warning: `Reached safety preview limit of ${maxScanFiles} files. Directory contains a very large number of files. You may want to exclude large directories such as .git or specific assets.`
+    } : {}),
     selectedSample: selectedFiles.slice(0, maxPreviewItems).map(f => f.relativePath),
     excludedSample: excludedFiles.slice(0, maxPreviewItems).map(f => ({
       path: f.relativePath,
       reason: f.reason
     })),
     summary: prunedDirs.length > 0
-      ? `Successfully excluded ${prunedDirs.length} directory subtree(s) (e.g. ${prunedDirs.slice(0, 3).join(', ')}). Total ${selectedFiles.length} files selected for packaging.`
-      : `Total ${selectedFiles.length} files selected for packaging.`
+      ? `Successfully excluded ${prunedDirs.length} directory subtree(s) (e.g. ${prunedDirs.slice(0, 3).join(', ')}). Total ${selectedFiles.length} files selected for packaging${allFiles.isTruncated ? ' (truncated by maxScanFiles limit)' : ''}.`
+      : `Total ${selectedFiles.length} files selected for packaging${allFiles.isTruncated ? ' (truncated by maxScanFiles limit)' : ''}.`
   };
 }
 

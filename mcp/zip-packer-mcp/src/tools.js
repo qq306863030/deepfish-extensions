@@ -69,6 +69,16 @@ export const TOOLS = [
           type: 'integer',
           default: 100,
           description: 'Maximum number of file entries to return in the sample lists.'
+        },
+        maxScanFiles: {
+          type: 'integer',
+          default: 50000,
+          description: 'Maximum files to scan before truncating preview (prevents hanging on massive directories like whole drives or huge multi-repo roots).'
+        },
+        calculateSize: {
+          type: 'boolean',
+          default: true,
+          description: 'Whether to stat individual files to calculate total uncompressed size. Set to false for fastest directory inspection.'
         }
       },
       required: ['sourcePath']

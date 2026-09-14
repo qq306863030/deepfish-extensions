@@ -1,6 +1,6 @@
 {
   "name": "zip-packer-mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Model Context Protocol (MCP) server for packing directories into zip files with include/exclude pattern filtering, streaming compression, and npx support.",
   "type": "module",
   "main": "dist/index.js",
