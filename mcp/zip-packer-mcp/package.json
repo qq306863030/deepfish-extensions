@@ -1,0 +1,42 @@
+{
+  "name": "zip-packer-mcp",
+  "version": "1.0.1",
+  "description": "Model Context Protocol (MCP) server for packing directories into zip files with include/exclude pattern filtering, streaming compression, and npx support.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "zip-packer-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "README.en.md"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "prepublishOnly": "npm run build",
+    "test": "node test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "zip",
+    "archive",
+    "packer",
+    "compress",
+    "filter"
+  ],
+  "author": "deepfish",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "archiver": "^7.0.1",
+    "picomatch": "^4.0.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

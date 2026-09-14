@@ -1,0 +1,60 @@
+{
+  "name": "doc-processor-mcp",
+  "version": "1.0.2",
+  "description": "Model Context Protocol (MCP) server for document conversion (md_conver) and processing across Word, Excel, PowerPoint, PDF, HTML, and Images.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "doc-processor-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "README.en.md"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\""
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "mcp",
+    "modelcontextprotocol",
+    "markdown",
+    "docx",
+    "xlsx",
+    "pdf",
+    "pptx",
+    "converter",
+    "document-processing"
+  ],
+  "author": "deepfish",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "adm-zip": "^0.5.16",
+    "cheerio": "^1.0.0",
+    "docx": "^9.2.0",
+    "docxtemplater": "^3.50.0",
+    "fs-extra": "^11.3.0",
+    "mammoth": "^1.9.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "pdf-to-img": "^7.0.0",
+    "pdfkit": "^0.16.0",
+    "picomatch": "^4.0.2",
+    "pizzip": "^3.1.7",
+    "pptxgenjs": "^3.12.0",
+    "puppeteer-core": "^25.10.0",
+    "sharp": "^0.33.5",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
